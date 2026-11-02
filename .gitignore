@@ -12,3 +12,6 @@ __pycache__/
 # 作業系統自動產生的垃圾檔
 .DS_Store
 Thumbs.db
+
+# 檢查腳本產生的範例資料（不需要版控）
+serpapi_sample.json
