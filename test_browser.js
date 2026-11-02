@@ -89,6 +89,39 @@ const { chromium } = require('playwright');
   check(await page.inputValue('#s_hotel_max_per_night_usd') === '180', '回到 180');
   check(await state('btnReset'), '還原鈕又變成停用');
 
+  console.log('\n--- 退房日期不能早於入住隔天 ---');
+  await page.goto('http://127.0.0.1:5000/');
+  await page.waitForLoadState('load');
+  await page.fill('#check_in', '2027-03-01');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.waitForTimeout(100);
+  check(await page.getAttribute('#check_out', 'min') === '2027-03-02',
+        '選了 3/01 入住後，退房最早只能選 3/02');
+
+  await page.fill('#check_out', '2027-03-05');
+  await page.fill('#check_in', '2027-03-10');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.waitForTimeout(100);
+  check(await page.inputValue('#check_out') === '',
+        '把入住改晚之後，已經不合法的退房日期會被清掉而不是留著');
+  check(await page.getAttribute('#check_out', 'min') === '2027-03-11',
+        '退房下限跟著更新成 3/11');
+
+  console.log('\n--- 每張卡片有兩個連結 ---');
+  await page.click('label:has(#modeDemo)');
+  await page.fill('#check_in', '2027-03-10');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.fill('#check_out', '2027-03-12');
+  await page.click('#btnSearch');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  const firstCard = page.locator('.card').first();
+  check(await firstCard.locator('a:has-text("官網連結")').count() === 1, '有「官網連結」');
+  const compare = firstCard.locator('a:has-text("比價連結")');
+  check(await compare.count() === 1, '有「比價連結」');
+  check((await compare.getAttribute('href')).startsWith('https://www.google.com/travel/search?q='),
+        '比價連結指向 Google Hotels');
+
   console.log('\n--- 重新整理要清空欄位（你回報的問題）---');
   // 必須從乾淨的頁面開始。重新整理一個 POST 出來的結果頁，
   // 瀏覽器會重送那次 POST，伺服器本來就該把同樣的值印回來。

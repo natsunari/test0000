@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date
+from urllib.parse import quote_plus
 
 from flask import Flask, render_template, request
 
@@ -22,7 +24,8 @@ app = Flask(__name__)
 
 # 示範模式固定用東京國際展示場，因為內建測試資料就是在那裡查的
 DEMO_PLACE = geocode.Place(
-    35.6298, 139.7954, "Tokyo Big Sight（示範資料）", "示範模式", "jp"
+    35.6298, 139.7954, "Tokyo Big Sight（示範資料）", "示範模式", "jp",
+    "Koto, Japan",
 )
 DEMO_CITY = "Tokyo"
 
@@ -78,10 +81,28 @@ def empty_form() -> dict:
             "mode": MODE_CACHE}
 
 
+# 中日韓文字。目的地用這些字查，OpenStreetMap 與 Google Hotels 的命中率
+# 都明顯比英文差（實測：台北的中文地址查不到、日文地名容易對到別的地方）。
+_CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]")
+
+
 def validate(form: dict) -> str | None:
     """檢查必填與日期先後。回傳錯誤訊息，沒問題則回傳 None。"""
-    if form["mode"] != MODE_DEMO and not form["destination"].strip():
-        return "請填寫目的地（展館名稱、地址，或座標）。"
+    destination = form["destination"].strip()
+    if form["mode"] != MODE_DEMO:
+        if not destination:
+            return "請填寫目的地（英文名稱、英文地址，或座標）。"
+        # 座標與 Google Maps 連結不受限制，那些本來就不是文字描述
+        is_coords = (geocode.parse_coordinates(destination)
+                     or geocode.coordinates_from_maps_url(destination))
+        if not is_coords and _CJK_RE.search(destination):
+            return (
+                "目的地請改用英文名稱或英文地址。\n"
+                "例如「台北101」請寫 Taipei 101、「東京ビッグサイト」請寫 "
+                "Tokyo Big Sight。\n"
+                "中日文地名在地圖資料裡的命中率明顯較差，容易查不到或對到別的地方。\n"
+                "也可以直接貼 Google Maps 的座標或網址，那不受這個限制。"
+            )
     if not form["check_in"] or not form["check_out"]:
         return "請選擇入住與退房日期。"
     try:
@@ -191,6 +212,16 @@ def home():
     hidden_types = sum(1 for v in all_verdicts if v.wrong_type)
     verdicts = [v for v in all_verdicts if not v.wrong_type]
     verdicts.sort(key=rules.sort_key)
+
+    # 比價連結：SerpApi 給的 link 是飯店官網，看不到各家報價與設施清單。
+    # 這裡自己組一個 Google Hotels 的查詢網址補上。
+    # ⚠️ 日期沒辦法帶進去 —— Google 把日期編碼在一個無法自行組出的參數裡，
+    #    所以點進去之後要自己選一次日期。
+    area_hint = place.area or ""
+    for v in verdicts:
+        query = f"{v.name} {area_hint}".strip()
+        v.compare_url = ("https://www.google.com/travel/search?q="
+                         + quote_plus(query))
 
     # 防呆：連最近的一間都在幾十公里外，幾乎可以確定是查飯店的字串沒對到目的地
     distances = [v.distance_km for v in verdicts if v.distance_km is not None]

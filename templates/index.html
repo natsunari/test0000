@@ -134,10 +134,13 @@
     .reasons{margin:0;padding-left:17px;font-size:12.5px;color:var(--muted)}
     .reasons li{margin:2px 0}
     .reasons.bad li{color:var(--bad)}
-    .go{margin-top:auto;padding-top:4px}
-    .go a{display:inline-block;font-size:13px;font-weight:600;color:var(--accent);
-      text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:7px 13px}
-    .go a:hover{background:var(--accent-soft);border-color:var(--accent)}
+    .go{margin-top:auto;padding-top:6px;display:flex;gap:7px;flex-wrap:wrap}
+    .go a{flex:1 1 auto;text-align:center;font-size:13px;font-weight:600;
+      color:var(--muted);text-decoration:none;border:1px solid var(--line);
+      border-radius:8px;padding:7px 11px;white-space:nowrap}
+    .go a:hover{background:#f3f4f6;color:var(--fg)}
+    .go a.primary{color:var(--accent);border-color:#cfe0ff;background:var(--accent-soft)}
+    .go a.primary:hover{background:#e0ecff;border-color:var(--accent)}
     .empty{color:var(--muted);font-size:14px;padding:4px 0 2px}
     footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
       font-size:12px;color:var(--muted)}
@@ -165,7 +168,9 @@
             <datalist id="venues">
               {% for v in known_venues %}<option value="{{ v }}">{% endfor %}
             </datalist>
-            <div class="hint">貼 Google Maps 的座標或網址最準確（例如 35.6298, 139.7954）。打名稱的話會顯示查到的地點讓你確認。</div>
+            <div class="hint"><b>請用英文</b>名稱或英文地址（例如 Tokyo Big Sight、Taipei 101）。
+              中日文的命中率明顯較差，容易查不到或對到別的地方。<br>
+              最準確的做法是貼 Google Maps 的座標或網址（例如 35.6298, 139.7954），那不受語言限制。</div>
           </div>
           <div class="field" style="flex:0 1 150px">
             <label for="city">城市</label>
@@ -276,6 +281,28 @@
             : !same(el.value, el.dataset.default));
       }
 
+      // 退房一定要晚於入住。這裡直接限制日期選擇器能選的範圍，
+      // 讓人根本選不到錯的日期，比選完才跳錯誤訊息好。
+      const checkIn = document.getElementById('check_in');
+      const checkOut = document.getElementById('check_out');
+      function nextDay(iso) {
+        const d = new Date(iso + 'T00:00:00');
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      }
+      function syncDates() {
+        const today = new Date().toISOString().slice(0, 10);
+        checkIn.min = today;
+        if (checkIn.value) {
+          const earliest = nextDay(checkIn.value);
+          checkOut.min = earliest;
+          // 已經填的退房日期若變成不合法，清掉它而不是留著一個錯的
+          if (checkOut.value && checkOut.value < earliest) checkOut.value = '';
+        } else {
+          checkOut.min = today;
+        }
+      }
+
       function syncDemoNote() {
         if (demoNote && demoRadio) demoNote.hidden = !demoRadio.checked;
       }
@@ -286,11 +313,14 @@
         form.reset();
         refresh();
         syncDemoNote();
+        syncDates();
       }
       refresh();
+      syncDates();
       window.addEventListener('load', clearRestoredValues);
       window.addEventListener('pageshow', clearRestoredValues);
 
+      checkIn.addEventListener('change', syncDates);
       settingsCol.addEventListener('input', refresh);
       settingsCol.addEventListener('change', refresh);
       form.querySelectorAll('input[name="mode"]').forEach(
@@ -374,7 +404,12 @@
           </div>
           {% if v.rejected_for %}<ul class="reasons bad">{% for r in v.rejected_for %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
           {% if v.notes %}<ul class="reasons">{% for r in v.notes %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-          {% if v.link %}<div class="go"><a href="{{ v.link }}" target="_blank" rel="noopener">查看飯店 →</a></div>{% endif %}
+          <div class="go">
+            {% if v.link %}<a href="{{ v.link }}" target="_blank" rel="noopener"
+               title="SerpApi 提供的飯店官方網站">官網連結</a>{% endif %}
+            {% if v.compare_url %}<a href="{{ v.compare_url }}" target="_blank" rel="noopener"
+               class="primary" title="在 Google Hotels 查各家報價與設施清單（日期需自行選擇）">比價連結</a>{% endif %}
+          </div>
         </div>
       </div>
     {% endmacro %}

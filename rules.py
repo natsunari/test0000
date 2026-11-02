@@ -141,7 +141,8 @@ class Verdict:
     bonuses: dict = field(default_factory=dict)       # 加分條件的三態結果
     # 以下純粹給畫面顯示用，不參與任何判斷
     image_url: str | None = None
-    link: str | None = None
+    link: str | None = None          # 飯店官網（SerpApi 給的）
+    compare_url: str | None = None   # Google Hotels 比價頁（程式自己組的）
     rating: float | None = None
     reviews: int | None = None
     stars: int | None = None
