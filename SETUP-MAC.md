@@ -40,7 +40,7 @@ macOS 內建的 Python 版本舊又容易出問題，**請自己裝一份新的*
 ```bash
 python3 --version
 ```
-看到類似 `Python 3.13.1` 就成功了。
+看到 `Python 3.` 開頭、而且第二個數字是 13 以上（例如 `Python 3.15.2`）就成功了。實際版本號以你下載當下的最新版為準，不用跟這裡寫的一樣。
 
 <details>
 <summary>如果顯示 command not found 或版本是 3.8 以下</summary>
@@ -143,7 +143,7 @@ pip install -r requirements.txt
 ```
 
 這會讀 `requirements.txt`，自動裝好裡面列的工具（Flask 負責做網站、requests 負責連網路）。
-跑完最後一行會是 `Successfully installed Flask-3.1.0 requests-2.32.3 ...`。
+跑完最後一行會是 `Successfully installed Flask-x.x.x requests-x.x.x ...`（版本號由 pip 依你的 Python 版本自動挑選，不用跟任何人一樣）。
 
 ---
 
