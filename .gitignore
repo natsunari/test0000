@@ -1,0 +1,14 @@
+# Python 虛擬環境（不要上傳到 GitHub）
+.venv/
+venv/
+
+# Python 執行時產生的暫存檔
+__pycache__/
+*.pyc
+
+# 密碼、API 金鑰（絕對不要上傳）
+.env
+
+# 作業系統自動產生的垃圾檔
+.DS_Store
+Thumbs.db

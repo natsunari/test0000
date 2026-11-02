@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的搜尋工具</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #1a1a1a;
+      --muted: #666666;
+      --border: #e0e0e0;
+      --accent: #2563eb;
+      --card: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #16181c;
+        --fg: #ececec;
+        --muted: #9aa0a6;
+        --border: #2e3238;
+        --accent: #60a5fa;
+        --card: #1e2126;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 16px;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+      line-height: 1.6;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; }
+    input[type=text] {
+      flex: 1 1 240px;
+      padding: 12px 14px;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+    select, button {
+      padding: 12px 14px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled { opacity: .6; cursor: default; }
+    #status { margin: 20px 0 8px; color: var(--muted); font-size: 14px; }
+    .item {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .item a { color: var(--accent); font-weight: 600; text-decoration: none; font-size: 17px; }
+    .item a:hover { text-decoration: underline; }
+    .item p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>我的搜尋工具</h1>
+    <p class="sub">輸入關鍵字，程式會即時連上網路查詢並顯示結果。</p>
+
+    <form id="searchForm">
+      <input type="text" id="keyword" placeholder="例如：台灣黑熊" autofocus>
+      <select id="source">
+        {% for key, src in sources.items() %}
+        <option value="{{ key }}">{{ src.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" id="submitBtn">搜尋</button>
+    </form>
+
+    <div id="status"></div>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('searchForm');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();                       // 不要讓網頁整頁重新載入
+      const keyword = document.getElementById('keyword').value.trim();
+      const source = document.getElementById('source').value;
+      if (!keyword) return;
+
+      submitBtn.disabled = true;
+      statusEl.textContent = '搜尋中…';
+      resultsEl.innerHTML = '';
+
+      try {
+        // 呼叫我們自己寫的 /api/search，由 Python 那邊負責真正連外網
+        const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}&source=${source}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          statusEl.textContent = '錯誤：' + (data.error || '未知問題');
+          return;
+        }
+        if (data.count === 0) {
+          statusEl.textContent = `找不到「${data.keyword}」的結果。`;
+          return;
+        }
+
+        statusEl.textContent = `找到 ${data.count} 筆結果：`;
+        for (const item of data.results) {
+          const div = document.createElement('div');
+          div.className = 'item';
+          const link = document.createElement('a');
+          link.href = item.url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = item.title;
+          const desc = document.createElement('p');
+          desc.textContent = item.snippet;           // 用 textContent 比較安全
+          div.append(link, desc);
+          resultsEl.appendChild(div);
+        }
+      } catch (err) {
+        statusEl.textContent = '無法連線到本機程式，請確認終端機裡的 python app.py 還在執行。';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
