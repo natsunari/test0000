@@ -96,9 +96,19 @@ def home():
     verdicts.sort(key=rules.sort_key)
 
     # ---- 4. 分成三區 ----
+    # 示範模式忽略了使用者的輸入，要明講，不能默默吃掉
+    ignored = None
+    if form["demo"]:
+        parts = [x for x in [form["destination"].strip()] if x]
+        ignored = {
+            "destination": parts[0] if parts else None,
+            "dates": f'{form["check_in"]} ~ {form["check_out"]}',
+        }
+
     context.update(
         place=place,
         source=source,
+        ignored=ignored,
         searched=True,
         fetched_at=data.get("_fetched_at"),
         total=len(verdicts),

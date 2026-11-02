@@ -42,6 +42,9 @@
       background:var(--accent);color:#fff;cursor:pointer}
     .error{background:var(--badbg);border:1px solid var(--bad);color:var(--bad);
       padding:12px 14px;border-radius:8px;margin-bottom:18px;white-space:pre-line}
+    .notice{background:var(--warnbg);border:1px solid var(--warn);color:var(--warn);
+      padding:11px 14px;border-radius:8px;margin-bottom:16px;font-size:14px}
+    .notice b{color:var(--warn)}
     .meta{background:var(--card);border:1px solid var(--border);border-radius:10px;
       padding:12px 14px;font-size:13px;color:var(--muted);margin-bottom:22px}
     .meta b{color:var(--fg)}
@@ -107,15 +110,35 @@
         <input type="date" id="check_out" name="check_out" value="{{ form.check_out }}"></div>
     </div>
     <div class="checks">
-      <label><input type="checkbox" name="demo" {% if form.demo %}checked{% endif %}>
+      <label><input type="checkbox" id="demo" name="demo" {% if form.demo %}checked{% endif %}>
         示範模式（用內建資料，不連網、不花額度）</label>
       <label><input type="checkbox" name="refresh" {% if form.refresh %}checked{% endif %}>
         強制重查（忽略快取，會花 1 次額度）</label>
     </div>
+    <div id="demoNote" class="notice" {% if not form.demo %}hidden{% endif %}>
+      ⚠️ 示範模式會<b>忽略上面的目的地與日期</b>，固定使用 Tokyo Big Sight 的內建測試資料。
+      要查你自己的展館，請取消勾選。
+    </div>
     <button type="submit">搜尋</button>
   </form>
+  <script>
+    // 勾選示範模式時立刻顯示提示，不用等送出才發現輸入被忽略
+    const demoBox = document.getElementById('demo');
+    const demoNote = document.getElementById('demoNote');
+    if (demoBox && demoNote) {
+      demoBox.addEventListener('change', () => { demoNote.hidden = !demoBox.checked; });
+    }
+  </script>
 
   {% if searched %}
+    {% if ignored %}
+      <div class="notice">
+        ⚠️ 這是<b>示範模式</b>的結果，用的是內建測試資料。
+        {% if ignored.destination %}你輸入的「<b>{{ ignored.destination }}</b>」
+        和日期 {{ ignored.dates }} <b>沒有被使用</b>。{% endif %}
+        要查真實資料，請取消勾選「示範模式」後重新搜尋。
+      </div>
+    {% endif %}
     <div class="meta">
       目的地：<b>{{ place.label }}</b>（{{ place.source }}）<br>
       資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}
