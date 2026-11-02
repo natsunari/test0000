@@ -141,6 +141,21 @@ v = ev(hotel(amenities=[], excluded_amenities=["No elevator"]),
 check(not v.passed and any("電梯" in x for x in v.rejected_for),
       "明確標示沒有電梯 → 淘汰")
 
+print("\n--- 通舖型住宿：有些青年旅館把自己登記成 hotel ---")
+for name in ["Sydney Harbour YHA", "Wake Up! Bondi Beach Hostel",
+             "Base Backpackers Sydney", "Hostelling International Sydney",
+             "Capsule Hotel Anshin Oyado", "The Bunkhouse Inn"]:
+    v = ev(hotel(name=name))
+    check(v.looks_like_dorm and not v.passed, f"擋下「{name}」")
+
+print("\n--- 但不可以誤殺正常飯店 ---")
+for name in ["Dormy Inn Premium Sapporo", "Park Hyatt Sydney",
+             "Hotel Dorsett", "Mercure Sydney", "Capsicum Boutique Hotel"]:
+    v = ev(hotel(name=name))
+    check(not v.looks_like_dorm, f"放行「{name}」")
+check(not ev(hotel(name="Dormy Inn Premium Sapporo")).looks_like_dorm,
+      "Dormy Inn 是正常商務飯店連鎖，有獨立房間與衛浴，不可因為含 dorm 就擋下")
+
 print("\n--- 保留規則：「不知道」絕不可淘汰 ---")
 v = ev(hotel(), "Tokyo")
 check(v.passed, "沒標冷氣與電梯的飯店仍然合格（本專案最重要的一條）")

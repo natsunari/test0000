@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import math
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -147,6 +148,7 @@ class Verdict:
     fare_per_day: float | None = None
     fare_is_default: bool = False
     wrong_type: bool = False          # 不是飯店（民宿、露營地…），畫面整筆不顯示
+    looks_like_dorm: bool = False     # 名稱看起來是通舖型住宿，同樣整筆不顯示
     walkable: bool = False                            # 走得到，不需搭車
     total_daily_usd: float | None = None              # 房價 + 當日交通費
     has_availability: bool = False                    # 查詢當下有可訂價格
@@ -192,6 +194,19 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         v.passed = False
         v.wrong_type = True
         v.rejected_for.append(f"住宿類型是「{hotel.get('type') or '未知'}」，不是飯店")
+
+    # --- 1b. 名稱看起來就是通舖的，直接排除 ---
+    # 有些青年旅館把自己登記成 type="hotel"，上面那道擋不住。
+    # 這是看名字猜，不是看資料，所以關鍵字放在 config.toml 讓人隨時調整。
+    lowered = (hotel.get("name") or "").lower()
+    for word in config["accommodation"].get("exclude_name_keywords", []):
+        # 詞首比對：hostel 命中 Hostels / Hostelling，
+        # 但名字中間剛好有這串字母的不會中（例如 Dormy Inn 不該被 dorm 誤殺）。
+        if re.search(r"\b" + re.escape(word.strip().lower()), lowered):
+            v.passed = False
+            v.looks_like_dorm = True
+            v.rejected_for.append(f"名稱含「{word}」，研判是通舖型住宿")
+            break
 
     # --- 2. 房價：加上緩衝後仍需在上限內 ---
     price = (hotel.get("rate_per_night") or {}).get("extracted_display_price")

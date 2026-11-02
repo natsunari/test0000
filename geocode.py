@@ -189,6 +189,10 @@ def reverse_lookup(lat: float, lon: float) -> tuple[str | None, str | None]:
     """
     用座標反查地名與國碼。回傳 (地名, 國碼)，查不到就都是 None。
 
+    地名優先取「這個地點本身的名字」（例如 Taipei 101、Tokyo Big Sight），
+    取不到才退成「城市, 國家」。因為 Google Hotels 用地標搜尋會把結果
+    集中在附近，用城市搜尋則會散到整座城市，而它只回二十筆左右。
+
     使用者貼座標時一定要做這一步，否則查飯店會拿座標字串去問 Google，
     而 Google 看不懂座標，會回傳完全無關地區的飯店。
     """
@@ -207,7 +211,12 @@ def reverse_lookup(lat: float, lon: float) -> tuple[str | None, str | None]:
     except (requests.RequestException, ValueError):
         return None, None
     address = data.get("address") or {}
-    return _area_from_address(address), address.get("country_code")
+    # Nominatim 反查時，地點本身的名字可能出現在這幾個欄位
+    name = data.get("name") or next(
+        (address[k] for k in ("tourism", "attraction", "building", "amenity",
+                              "leisure", "shop", "office")
+         if address.get(k)), None)
+    return (name or _area_from_address(address)), address.get("country_code")
 
 
 def load_venues(path: Path | None = None) -> dict:

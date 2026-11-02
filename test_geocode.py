@@ -116,6 +116,36 @@ try:
 finally:
     geocode.requests.get = original_get
 
+print("\n--- 反查要優先取地標名稱，而不是城市 ---")
+# 查飯店時「Taipei 101」比「台北市, 台灣」好用 ——
+# Google 會把結果集中在地標附近，用城市搜則散到整座城市。
+class NamedReverse:
+    status_code = 200
+    payload = {"name": "Taipei 101",
+               "address": {"city": "臺北市", "country": "臺灣",
+                           "country_code": "tw"}}
+    @classmethod
+    def json(cls):
+        return cls.payload
+
+
+_orig = geocode.requests.get
+geocode._last_request_at = 0.0
+geocode.requests.get = lambda *a, **k: NamedReverse()
+try:
+    area, country = geocode.reverse_lookup(25.0339, 121.5645)
+    check(area == "Taipei 101", f"取到地標名稱「{area}」而不是城市")
+    check(country == "tw", "國碼照樣取得")
+
+    # 沒有 name 時才退回「城市, 國家」
+    NamedReverse.payload = {"address": {"city": "Urayasu", "country": "Japan",
+                                        "country_code": "jp"}}
+    area, country = geocode.reverse_lookup(35.63, 139.88)
+    check(area == "Urayasu, Japan", f"沒有地標名稱時退回「{area}」")
+finally:
+    geocode.requests.get = _orig
+    NamedReverse.payload = {"name": "Taipei 101"}
+
 print("\n--- 已存地點 ---")
 with tempfile.TemporaryDirectory() as tmp:
     venues = Path(tmp) / "venues.json"

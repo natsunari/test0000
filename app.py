@@ -191,10 +191,17 @@ def home():
             data, source = search.load_fixture(), "示範資料"
             hotel_query = "Tokyo Big Sight"
         else:
-            # ⚠️ 查飯店不能用使用者輸入的原字串。
-            # 貼座標時 Google Hotels 看不懂，會回傳完全無關地區的結果
+            # 查飯店用「地標名稱」最好 —— Google 懂「Taipei 101 附近的飯店」，
+            # 結果會集中在目的地周圍；用城市搜則散到整座城市，
+            # 而它只回二十筆左右，近的反而可能被擠掉。
+            #
+            # 使用者打的是名稱就直接用；打的是座標就用反查到的地標名稱，
+            # 絕不能把座標字串丟給 Google，它看不懂
             # （實際踩過：貼東京迪士尼的座標，查出來是美國的露營地）。
-            hotel_query = place.area or form["destination"]
+            typed_a_name = not (geocode.parse_coordinates(form["destination"])
+                                or geocode.coordinates_from_maps_url(form["destination"]))
+            hotel_query = (form["destination"].strip() if typed_a_name
+                           else (place.area or form["destination"]))
             data, source = search.search_hotels(
                 hotel_query, form["check_in"], form["check_out"],
                 use_cache=form["mode"] != MODE_REFRESH,
@@ -219,9 +226,12 @@ def home():
                        fare_used, fare_source)
         for h in data.get("properties", [])
     ]
-    # 不是飯店的整筆不顯示 —— 連「已排除」都不用出現，那不是你的選項
+    # 不是飯店、或名稱看起來是通舖的，整筆不顯示 ——
+    # 連「已排除」都不用出現，那些本來就不是你的選項
     hidden_types = sum(1 for v in all_verdicts if v.wrong_type)
-    verdicts = [v for v in all_verdicts if not v.wrong_type]
+    hidden_dorms = sum(1 for v in all_verdicts if v.looks_like_dorm)
+    verdicts = [v for v in all_verdicts
+                if not v.wrong_type and not v.looks_like_dorm]
     verdicts.sort(key=rules.sort_key)
 
     # 比價連結：SerpApi 給的 link 是飯店官網，看不到各家報價與設施清單。
@@ -265,7 +275,7 @@ def home():
     return page(
         form=form, config=config, place=place, source=source, searched=True,
         fetched_at=data.get("_fetched_at"), total=len(all_verdicts),
-        hidden_types=hidden_types, hotel_query=hotel_query,
+        hidden_types=hidden_types, hidden_dorms=hidden_dorms, hotel_query=hotel_query,
         far_warning=far_warning,
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],

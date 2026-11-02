@@ -28,8 +28,28 @@ taxi_max_per_day_usd = 40
 #   "vacation rental" 民宿／短租公寓  ← 排除
 allowed_types = ["hotel"]
 
-# 註：你的「獨立衛浴」需求由這條規則保證。
-# 共用衛浴是青年旅館的特徵，只收 hotel 就等於排除了共用衛浴。
+# 註：你的「獨立衛浴」需求主要由這條規則保證。
+# 共用衛浴是青年旅館的特徵，只收 hotel 就等於排除了大部分共用衛浴。
+
+# 但有些青年旅館會把自己登記成 "hotel"（澳洲、歐洲特別常見），
+# type 欄位擋不住。這裡再用名稱關鍵字補一道。
+#
+# ⚠️ 這是「看名字猜」，不是看資料，所以兩個方向都可能出錯：
+#    名字裡有這些字但其實是正常飯店 → 會被誤刪
+#    是通舖但名字看不出來           → 擋不住
+#    覺得誤判就改這個清單。
+#
+# 比對規則：不分大小寫，而且只比對「詞首」。
+#   "hostel" 會命中 Hostel、Hostels、Hostelling
+#   但不會命中名字中間剛好有這幾個字母的字。
+#
+# ⚠️ 刻意不放 "dorm"：日本的 Dormy Inn 是正常商務飯店連鎖，
+#    有獨立房間與衛浴，用 "dorm" 會把它誤殺。改用完整的 "dormitory"。
+exclude_name_keywords = [
+  "hostel", "hostal", "backpacker", "yha",
+  "dormitory", "bunk", "capsule", "pod hotel",
+  "share house", "sharehouse",
+]
 
 
 [availability]
