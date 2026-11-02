@@ -59,10 +59,16 @@
     .meta b{color:var(--fg)}
 
     /* ---------- 版面：搜尋在左、限制設定在右 ---------- */
-    .top{display:flex;gap:18px;align-items:flex-start;margin-bottom:22px;
+    /* align-items:stretch 讓左右兩張卡片等高、底部對齊。
+       內容較少的那張底部會留白，這是刻意的，比高度參差好看。 */
+    .top{display:flex;gap:18px;align-items:stretch;margin-bottom:22px;
       justify-content:center}
-    .top .search{flex:1 1 520px;min-width:0;max-width:620px;margin-bottom:0}
-    .settings{flex:0 1 420px;min-width:0}
+    .top .search{flex:1 1 520px;min-width:0;max-width:620px;margin-bottom:0;
+      display:flex;flex-direction:column}
+    .top .search button[type=submit]{align-self:flex-start;margin-top:auto}
+    .settings{flex:0 1 420px;min-width:0;display:flex}
+    .settings form{width:100%;display:flex;flex-direction:column}
+    .settings .sbtns{margin-top:auto;padding-top:14px}
     @media (max-width:980px){ .top{flex-direction:column;align-items:stretch}
       .top .search{max-width:none} .settings{flex:1 1 auto;width:100%} }
     .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}
@@ -83,7 +89,7 @@
       font-weight:400;cursor:pointer}
     .switch input{margin-top:3px;flex:0 0 auto}
     .switch b{font-size:12.5px;font-weight:600;display:block}
-    .sbtns{display:flex;gap:8px;margin-top:14px}
+    .sbtns{display:flex;gap:8px}
     button.small{padding:8px 14px;font-size:13.5px;border-radius:8px}
     button.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}
     button.ghost:hover{background:#f3f4f6;color:var(--fg)}
@@ -248,10 +254,14 @@
         note.hidden = document.getElementById('modeDemo').checked === false;
       });
     });
-    // 從別的頁面返回時瀏覽器會還原舊值，這裡強制清空
-    window.addEventListener('pageshow', e => {
-      if (e.persisted) document.querySelector('form').reset();
-    });
+    // 瀏覽器會在重新整理或返回時「幫」你把剛才填的值填回去。
+    // reset() 是還原成 HTML 裡寫的預設值 —— 直接打開頁面時那是空的，
+    // 送出搜尋後那是你這次送出的值。所以每次載入都呼叫是安全的，
+    // 它只會撤銷瀏覽器的自動還原，不會清掉伺服器印出來的內容。
+    const searchForm = document.querySelector('form');
+    const resetSearchForm = () => searchForm && searchForm.reset();
+    resetSearchForm();
+    window.addEventListener('pageshow', resetSearchForm);
   </script>
 
   {% if searched %}

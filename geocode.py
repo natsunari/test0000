@@ -104,6 +104,19 @@ def query_variants(text: str) -> list[str]:
     return variants[:3]
 
 
+class NotFound(LookupError):
+    """查詢成功送達，但對方說沒有這個地點。換個寫法再試可能有用。"""
+
+
+class ServiceError(LookupError):
+    """根本沒問到 —— 連不上、被拒絕、被限流、或對方出錯。
+
+    這跟「查無此地」是完全不同的事，不可以混為一談：
+    把連線失敗說成「找不到台北101」會讓人以為是自己打錯字，
+    然後一直換寫法重試，卻永遠不會成功。
+    """
+
+
 @dataclass
 class Place:
     latitude: float
@@ -207,20 +220,21 @@ def resolve(text: str, *, allow_network: bool = True,
 
     # 3. 問 Nominatim。中文地址常常要簡化過才查得到，所以依序試幾個版本。
     attempts = query_variants(text)
-    last_error: LookupError | None = None
     for candidate in attempts:
         try:
             return _query_nominatim(candidate)
-        except LookupError as exc:
-            last_error = exc
-    raise LookupError(
+        except NotFound:
+            continue        # 這個寫法查不到，換下一個簡化版本
+        except ServiceError:
+            raise           # 根本沒問到，換寫法也沒用，立刻把真正原因回報出去
+    raise NotFound(
         f"找不到「{text}」，也試過簡化版本（{'、'.join(attempts[1:]) or '無'}）。\n\n"
         f"中文地址常常查不到，最可靠的做法是直接給座標：\n"
         f"　1. 在 Google Maps 上找到那個地點\n"
         f"　2. 對著它按右鍵，選單最上面那行就是座標\n"
         f"　3. 點一下複製，貼進這個欄位\n"
         f"（也可以直接貼 Google Maps 的網址）"
-    ) from last_error
+    )
 
 
 def _query_nominatim(text: str) -> Place:
@@ -234,25 +248,38 @@ def _query_nominatim(text: str) -> Place:
             headers={"User-Agent": USER_AGENT},
             timeout=20,
         )
+    except requests.Timeout as exc:
+        raise ServiceError(
+            "OpenStreetMap 在 20 秒內沒有回應。可能是網路太慢，或對方忙碌。"
+        ) from exc
     except requests.RequestException as exc:
-        raise LookupError(f"查詢地址時連線失敗：{exc}") from exc
+        raise ServiceError(
+            f"連不上 OpenStreetMap：{exc}\n"
+            f"如果你在公司或學校網路，可能是防火牆擋住了 "
+            f"nominatim.openstreetmap.org。"
+        ) from exc
 
     if res.status_code == 403:
-        raise LookupError(
+        raise ServiceError(
             "OpenStreetMap 拒絕了這次查詢（403）。"
-            "通常是 User-Agent 問題，請見 geocode.py 開頭的政策說明。"
+            "通常是 User-Agent 的問題，請見 geocode.py 開頭的政策說明。"
         )
     if res.status_code == 429:
-        raise LookupError("查詢太頻繁被 OpenStreetMap 限流，請稍等幾秒再試。")
-    if res.status_code != 200:
-        raise LookupError(f"查詢地址失敗（HTTP {res.status_code}）")
-
-    results = res.json()
-    if not results:
-        raise LookupError(
-            f"找不到「{text}」。試試看更完整的名稱或地址，"
-            f"或直接從 Google Maps 複製座標貼進來（例如 35.6298, 139.7954）。"
+        raise ServiceError(
+            "查詢太頻繁，被 OpenStreetMap 限流（429）。等個十幾秒再試一次。"
         )
+    if res.status_code != 200:
+        raise ServiceError(
+            f"OpenStreetMap 回應異常（HTTP {res.status_code}）。"
+            f"通常是對方暫時出問題，稍後再試。"
+        )
+
+    try:
+        results = res.json()
+    except ValueError as exc:
+        raise ServiceError("OpenStreetMap 回傳的內容無法解析。") from exc
+    if not results:
+        raise NotFound(f"OpenStreetMap 裡找不到「{text}」")
 
     top = results[0]
     country = (top.get("address") or {}).get("country_code")
