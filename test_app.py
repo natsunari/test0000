@@ -72,6 +72,42 @@ check("過了" in (app.validate(form(check_in=past, check_out=future)) or ""),
 check("格式" in (app.validate(form(check_in="not-a-date")) or ""),
       "亂填日期格式會被擋下，而不是讓程式當掉")
 
+print("\n--- 三種輸入都要解析到同一個地標 ---")
+# 這是重點：不論打名稱、打英文地址、還是貼經緯度，
+# 送給 Google Hotels 的都應該是同一個地標，才會找到同一批附近的飯店。
+import geocode
+
+taipei101 = geocode.Place(25.0339, 121.5645, "label", "OpenStreetMap",
+                          "tw", "Taipei, Taiwan", "Taipei 101")
+for label, typed in [
+    ("名稱", "Taipei 101"),
+    ("英文地址", "No. 7, Section 5, Xinyi Road, Xinyi District, Taipei"),
+    ("經緯度", "25.0339, 121.5645"),
+    ("度分秒", '25°02\'02"N 121°33\'53"E'),
+    ("Maps 網址", "https://www.google.com/maps/@25.0339,121.5645,17z"),
+]:
+    got = app.hotel_search_query(typed, taipei101)
+    check(got == "Taipei 101", f"用{label}查 → 送出「{got}」")
+
+print("\n--- 解析不到地標時的退路 ---")
+no_landmark = geocode.Place(25.03, 121.56, "label", "OpenStreetMap",
+                            "tw", "Taipei, Taiwan", None)
+check(app.hotel_search_query("Taipei 101", no_landmark) == "Taipei 101",
+      "沒有地標時，使用者打的名稱優先於城市")
+check(app.hotel_search_query("25.0339, 121.5645", no_landmark) == "Taipei, Taiwan",
+      "貼座標又沒有地標時才退回城市")
+check(app.hotel_search_query("25.0339, 121.5645",
+                             geocode.Place(1, 2, "l", "s")) == "25.0339, 121.5645",
+      "什麼都解析不到時回傳原輸入，總比送出空字串好")
+
+print("\n--- 地標名稱是當地語言時要跳過 ---")
+cjk = geocode.Place(25.03, 121.56, "label", "OpenStreetMap",
+                    "tw", "Taipei, Taiwan", "台北101")
+check(app.hotel_search_query("Taipei 101", cjk) == "Taipei 101",
+      "Nominatim 回傳中文地標時，改用使用者打的英文")
+check(app.hotel_search_query("25.0339, 121.5645", cjk) == "Taipei, Taiwan",
+      "沒有英文可用時退回城市，而不是送中文給 Google")
+
 print("\n--- 費率換匯：當地幣別要換成美金 ---")
 import fx
 import rules

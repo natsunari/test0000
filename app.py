@@ -86,6 +86,34 @@ def empty_form() -> dict:
 _CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]")
 
 
+def hotel_search_query(destination: str, place) -> str:
+    """
+    決定要送給 Google Hotels 的查詢字串。
+
+    目標：不論使用者輸入「Taipei 101」、英文地址，還是經緯度，
+    都要解析到同一個地標，才會找到同一批附近的飯店。
+
+    優先序：
+      1. 解析出來的地標名稱 —— 三種輸入都會走到同一個答案
+      2. 使用者打的文字 —— 他打的本來就是名稱時最準
+      3. 「城市, 國家」 —— 最後的退路，結果會散到整座城市
+
+    另外跳過含中日韓文字的候選：Google Hotels 用英文查命中率明顯較好，
+    而 Nominatim 常常回傳當地語言的名稱（例如「台北101」）。
+    """
+    destination = (destination or "").strip()
+    typed_a_name = not (geocode.parse_coordinates(destination)
+                        or geocode.coordinates_from_maps_url(destination))
+
+    for candidate in (place.landmark,
+                      destination if typed_a_name else None,
+                      place.area):
+        if candidate and not _CJK_RE.search(candidate):
+            return candidate
+    # 全部都含中日韓文字或都沒有時，用有東西的那個，總比送座標字串好
+    return place.landmark or place.area or destination
+
+
 def validate(form: dict) -> str | None:
     """檢查必填與日期先後。回傳錯誤訊息，沒問題則回傳 None。"""
     destination = form["destination"].strip()
@@ -191,17 +219,7 @@ def home():
             data, source = search.load_fixture(), "示範資料"
             hotel_query = "Tokyo Big Sight"
         else:
-            # 查飯店用「地標名稱」最好 —— Google 懂「Taipei 101 附近的飯店」，
-            # 結果會集中在目的地周圍；用城市搜則散到整座城市，
-            # 而它只回二十筆左右，近的反而可能被擠掉。
-            #
-            # 使用者打的是名稱就直接用；打的是座標就用反查到的地標名稱，
-            # 絕不能把座標字串丟給 Google，它看不懂
-            # （實際踩過：貼東京迪士尼的座標，查出來是美國的露營地）。
-            typed_a_name = not (geocode.parse_coordinates(form["destination"])
-                                or geocode.coordinates_from_maps_url(form["destination"]))
-            hotel_query = (form["destination"].strip() if typed_a_name
-                           else (place.area or form["destination"]))
+            hotel_query = hotel_search_query(form["destination"], place)
             data, source = search.search_hotels(
                 hotel_query, form["check_in"], form["check_out"],
                 use_cache=form["mode"] != MODE_REFRESH,

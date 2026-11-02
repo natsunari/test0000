@@ -135,9 +135,12 @@ class Place:
     label: str                      # 顯示給使用者確認用
     source: str                     # "座標輸入" / "已存地點" / "OpenStreetMap"
     country_code: str | None = None  # 'jp'、'sg'…，用來決定當地貨幣
-    # 查飯店時要送給 Google 的地名。
-    # 不能直接用使用者輸入的字 —— 座標 Google 看不懂，會回傳完全無關的地區。
+    # 「城市, 國家」，查飯店的最後退路
     area: str | None = None
+    # 這個地點本身的名字（Taipei 101、Tokyo Big Sight…）。
+    # 查飯店時優先用它 —— 不論使用者輸入的是名稱、地址還是座標，
+    # 都要先解析成同一個地標，才會找到同一批附近的飯店。
+    landmark: str | None = None
 
 
 def parse_coordinates(text: str) -> tuple[float, float] | None:
@@ -185,9 +188,28 @@ def _area_from_address(address: dict | None) -> str | None:
     return ", ".join(parts) if parts else None
 
 
-def reverse_lookup(lat: float, lon: float) -> tuple[str | None, str | None]:
+def _poi_name(data: dict, address: dict | None) -> str | None:
     """
-    用座標反查地名與國碼。回傳 (地名, 國碼)，查不到就都是 None。
+    從 Nominatim 的回應取出「這個地點本身的名字」。
+
+    正向查詢（文字→座標）與反向查詢（座標→地名）都用這個，
+    這樣不論使用者輸入名稱、地址還是座標，都會解析到同一個地標。
+    """
+    name = data.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    for key in ("tourism", "attraction", "building", "amenity",
+                "leisure", "shop", "office", "historic"):
+        value = (address or {}).get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def reverse_lookup(lat: float, lon: float
+                   ) -> tuple[str | None, str | None, str | None]:
+    """
+    用座標反查。回傳 (地標名稱, 城市國家, 國碼)，查不到的就是 None。
 
     地名優先取「這個地點本身的名字」（例如 Taipei 101、Tokyo Big Sight），
     取不到才退成「城市, 國家」。因為 Google Hotels 用地標搜尋會把結果
@@ -206,17 +228,13 @@ def reverse_lookup(lat: float, lon: float) -> tuple[str | None, str | None]:
             timeout=20,
         )
         if res.status_code != 200:
-            return None, None
+            return None, None, None
         data = res.json()
     except (requests.RequestException, ValueError):
-        return None, None
+        return None, None, None
     address = data.get("address") or {}
-    # Nominatim 反查時，地點本身的名字可能出現在這幾個欄位
-    name = data.get("name") or next(
-        (address[k] for k in ("tourism", "attraction", "building", "amenity",
-                              "leisure", "shop", "office")
-         if address.get(k)), None)
-    return (name or _area_from_address(address)), address.get("country_code")
+    return (_poi_name(data, address), _area_from_address(address),
+            address.get("country_code"))
 
 
 def load_venues(path: Path | None = None) -> dict:
@@ -240,6 +258,7 @@ def save_venue(key: str, place: Place, path: Path | None = None) -> None:
         "label": place.label,
         "country_code": place.country_code,
         "area": place.area,
+        "landmark": place.landmark,
     }
     p.write_text(json.dumps(venues, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -273,24 +292,26 @@ def resolve(text: str, *, allow_network: bool = True,
         source = "Maps 連結"
     if coords:
         lat, lon = coords
-        area, country = (reverse_lookup(lat, lon) if allow_network else (None, None))
+        landmark, area, country = (reverse_lookup(lat, lon) if allow_network
+                                   else (None, None, None))
         label = f"座標 {lat}, {lon}"
-        if area:
-            label += f"（{area}）"
-        return Place(lat, lon, label, source, country, area)
+        if landmark or area:
+            label += f"（{landmark or area}）"
+        return Place(lat, lon, label, source, country, area, landmark)
 
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
     saved = load_venues(venues_path).get(text.lower())
     if saved:
         place = Place(saved["latitude"], saved["longitude"],
                       saved["label"], "已存地點", saved.get("country_code"),
-                      saved.get("area"))
+                      saved.get("area"), saved.get("landmark"))
         # 舊版存的紀錄沒有國碼與地名（當時還沒有這些功能）。
         # 缺了就反查一次補上，否則當地貨幣顯示不出來、查飯店也會用錯字串。
-        if (place.country_code and place.area) or not allow_network:
+        if (place.country_code and place.area and place.landmark) or not allow_network:
             return place
-        area, country = reverse_lookup(place.latitude, place.longitude)
-        if area or country:
+        landmark, area, country = reverse_lookup(place.latitude, place.longitude)
+        if landmark or area or country:
+            place.landmark = place.landmark or landmark
             place.area = place.area or area
             place.country_code = place.country_code or country
             save_venue(text, place, venues_path)
@@ -366,4 +387,5 @@ def _query_nominatim(text: str) -> Place:
     address = top.get("address") or {}
     return Place(float(top["lat"]), float(top["lon"]),
                  top.get("display_name", text), "OpenStreetMap",
-                 address.get("country_code"), _area_from_address(address))
+                 address.get("country_code"), _area_from_address(address),
+                 _poi_name(top, address))

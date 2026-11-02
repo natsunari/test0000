@@ -133,15 +133,24 @@ _orig = geocode.requests.get
 geocode._last_request_at = 0.0
 geocode.requests.get = lambda *a, **k: NamedReverse()
 try:
-    area, country = geocode.reverse_lookup(25.0339, 121.5645)
-    check(area == "Taipei 101", f"取到地標名稱「{area}」而不是城市")
+    landmark, area, country = geocode.reverse_lookup(25.0339, 121.5645)
+    check(landmark == "Taipei 101", f"取到地標名稱「{landmark}」")
+    check(area == "臺北市, 臺灣", f"城市與國家另外保留為「{area}」")
     check(country == "tw", "國碼照樣取得")
 
-    # 沒有 name 時才退回「城市, 國家」
+    # 沒有 name 欄位時，從 address 裡的 tourism/building 等欄位找
+    NamedReverse.payload = {"address": {"tourism": "Tokyo Big Sight",
+                                        "city": "Koto", "country": "Japan",
+                                        "country_code": "jp"}}
+    landmark, area, country = geocode.reverse_lookup(35.63, 139.79)
+    check(landmark == "Tokyo Big Sight", "沒有 name 時從 address 的 tourism 取")
+
+    # 兩邊都沒有地標資訊時，landmark 是 None，只剩城市
     NamedReverse.payload = {"address": {"city": "Urayasu", "country": "Japan",
                                         "country_code": "jp"}}
-    area, country = geocode.reverse_lookup(35.63, 139.88)
-    check(area == "Urayasu, Japan", f"沒有地標名稱時退回「{area}」")
+    landmark, area, country = geocode.reverse_lookup(35.63, 139.88)
+    check(landmark is None, "完全沒有地標資訊時為 None")
+    check(area == "Urayasu, Japan", f"仍然取得城市「{area}」")
 finally:
     geocode.requests.get = _orig
     NamedReverse.payload = {"name": "Taipei 101"}
