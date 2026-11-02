@@ -29,6 +29,7 @@ def good_form(**overrides):
     """一組合法的表單值，測試時只改要測的欄位。"""
     form = {
         "hotel_max_per_night_usd": "180",
+        "hotel_min_per_night_usd": "0",
         "taxi_max_one_way_usd": "20",
         "taxi_max_per_day_usd": "40",
         "require_availability": "on",
@@ -41,6 +42,7 @@ def good_form(**overrides):
 
 config = rules.load_config()
 TOKYO_FARE, TOKYO_SOURCE = rules.resolve_fare(config, "Tokyo", "jp")
+dest = (35.6298, 139.7954)      # 東京國際展示場，當作測試用的目的地
 
 
 def ev(h, cfg=None):
@@ -82,6 +84,13 @@ _, problem = settings.parse_form(
     good_form(taxi_max_one_way_usd="50", taxi_max_per_day_usd="40"))
 check(problem and "每日" in problem, f"每日上限小於單趟上限被擋下：{problem}")
 
+_, problem = settings.parse_form(
+    good_form(hotel_min_per_night_usd="200", hotel_max_per_night_usd="180"))
+check(problem and "下限" in problem,
+      f"住宿下限大於上限被擋下：{problem}")
+_, problem = settings.parse_form(good_form(hotel_min_per_night_usd="80"))
+check(problem is None, "下限 80、上限 180 是合理的組合")
+
 print("\n--- 覆寫會疊在預設值上 ---")
 merged = settings.apply(config, {"hotel_max_per_night_usd": 100.0})
 check(merged["budget"]["hotel_max_per_night_usd"] == 100.0, "覆寫生效")
@@ -114,11 +123,26 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         settings.SETTINGS_PATH = original
 
+print("\n--- 最低房價：用來擋青年旅館 ---")
+# 雪梨實測：六間通舖都在 US$29–40，當地正常飯店約 US$100 起跳。
+# 名稱過濾只擋得住兩間，價格一設就全部擋下。
+cheap = {"name": "Wake Up! Sydney", "type": "hotel",
+         "rate_per_night": {"extracted_display_price": 40},
+         "gps_coordinates": {"latitude": 35.6326, "longitude": 139.7934}}
+check(ev(cheap).passed, "下限預設為 0（關閉）時，便宜的飯店照樣通過")
+floored = settings.apply(config, {"hotel_min_per_night_usd": 80.0})
+v = ev(cheap, floored)
+check(not v.passed and v.looks_like_dorm,
+      "下限設 80 之後，US$40 的被擋下並標記為通舖")
+check(any("通舖" in x for x in v.rejected_for), "淘汰原因說明是價位問題")
+normal = {**cheap, "name": "Sofitel Sydney",
+          "rate_per_night": {"extracted_display_price": 165}}
+check(ev(normal, floored).passed, "US$165 的正常飯店不受影響")
+
 print("\n--- 改了限制真的會影響判定 ---")
 hotel = {"name": "測試", "type": "hotel",
          "rate_per_night": {"extracted_display_price": 150},
          "gps_coordinates": {"latitude": 35.6326, "longitude": 139.7934}}
-dest = (35.6298, 139.7954)
 check(ev(hotel, config).passed,
       "每晚 $150 在預設上限 $180 之下 → 通過")
 tight = settings.apply(config, {"hotel_max_per_night_usd": 100.0})

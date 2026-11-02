@@ -234,6 +234,14 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         buffered = price * (1 + pct / 100)
         v.price_usd = float(price)
         v.price_with_buffer = round(buffered, 2)
+        floor = budget.get("hotel_min_per_night_usd", 0) or 0
+        if floor and price < floor:
+            v.passed = False
+            v.looks_like_dorm = True
+            v.rejected_for.append(
+                f"每晚 ${price} 低於下限 ${floor:g}，"
+                f"這個價位在當地通常是通舖或共用衛浴"
+            )
         cap = budget["hotel_max_per_night_usd"]
         if buffered > cap:
             v.passed = False

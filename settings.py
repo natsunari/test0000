@@ -25,6 +25,9 @@ EDITABLE = {
     "hotel_max_per_night_usd":
         ("budget", "hotel_max_per_night_usd", float, "住宿每晚上限", "USD",
          "公司規範的房價上限"),
+    "hotel_min_per_night_usd":
+        ("budget", "hotel_min_per_night_usd", float, "住宿每晚下限", "USD",
+         "擋青年旅館用。低於當地正常飯店行情的多半是通舖。0 = 關閉"),
     "taxi_max_one_way_usd":
         ("budget", "taxi_max_one_way_usd", float, "單趟交通上限", "USD",
          "飯店到目的地的單程車資上限"),
@@ -45,6 +48,7 @@ EDITABLE = {
 # 合理範圍，避免打錯字造成荒謬的結果（例如上限打成 1800）
 LIMITS = {
     "hotel_max_per_night_usd": (1, 2000),
+    "hotel_min_per_night_usd": (0, 1000),
     "taxi_max_one_way_usd": (1, 500),
     "taxi_max_per_day_usd": (1, 1000),
 }
@@ -134,4 +138,6 @@ def parse_form(form) -> tuple[dict, str | None]:
 
     if values["taxi_max_per_day_usd"] < values["taxi_max_one_way_usd"]:
         return {}, "「每日交通上限」不能小於「單趟交通上限」。"
+    if values["hotel_min_per_night_usd"] >= values["hotel_max_per_night_usd"]:
+        return {}, "「住宿每晚下限」必須小於上限，否則不會有任何飯店符合。"
     return values, None

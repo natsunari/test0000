@@ -5,19 +5,38 @@
 這支程式「不會連網」，所以不會消耗任何 SerpApi 額度，可以放心重複執行。
 
 執行方式：
-    python show_sample.py
+    python show_sample.py            讀 check_serpapi.py 存下的範例
+    python show_sample.py --cache    讀你最近一次真實搜尋的結果
 """
 
 import json
 from collections import Counter
 from pathlib import Path
 
-SAMPLE = Path(__file__).parent / "serpapi_sample.json"
+import sys
 
-if not SAMPLE.exists():
-    raise SystemExit("找不到 serpapi_sample.json，請先執行 python check_serpapi.py")
+BASE = Path(__file__).parent
+SAMPLE = BASE / "serpapi_sample.json"
+CACHE = BASE / "cache"
 
-data = json.loads(SAMPLE.read_text(encoding="utf-8"))
+if "--cache" in sys.argv:
+    files = sorted(CACHE.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    if not files:
+        raise SystemExit("cache/ 裡沒有東西，請先在網頁上搜尋一次。")
+    source = files[0]
+    print(f"讀取最近一次搜尋：{source.name}")
+else:
+    source = SAMPLE
+    if not source.exists():
+        raise SystemExit(
+            "找不到 serpapi_sample.json。\n"
+            "要看最近一次真實搜尋的話，請執行：python show_sample.py --cache")
+
+data = json.loads(source.read_text(encoding="utf-8"))
+params = data.get("search_parameters") or {}
+if params:
+    print(f"查詢條件：{params.get('q')} / "
+          f"{params.get('check_in_date')} ~ {params.get('check_out_date')}")
 properties = data.get("properties", [])
 
 print("=" * 60)
@@ -108,6 +127,32 @@ if with_images:
             print(f"    {k:<18} = {preview[:70]}{'…' if len(preview) > 70 else ''}")
     else:
         print(f"  第一張的內容：{str(first)[:100]}")
+
+# 最便宜的幾筆通常就是青年旅館。把它們的完整欄位印出來，
+# 看看有沒有比「名稱」和「價格」更可靠的判斷依據。
+print("\n--- 最便宜的 6 筆的完整欄位（找更好的過濾訊號用）---")
+priced = [p_ for p_ in properties
+          if (p_.get("rate_per_night") or {}).get("extracted_display_price") is not None]
+priced.sort(key=lambda p_: p_["rate_per_night"]["extracted_display_price"])
+for p_ in priced[:6]:
+    print(f"\n  ● {p_.get('name')}  "
+          f"US${p_['rate_per_night']['extracted_display_price']}")
+    for key in ("type", "hotel_class", "extracted_hotel_class", "overall_rating",
+                "reviews", "location_rating", "check_in_time", "check_out_time"):
+        if key in p_:
+            print(f"      {key:<24} {p_[key]}")
+    for key in ("amenities", "excluded_amenities"):
+        if p_.get(key):
+            print(f"      {key:<24} {', '.join(map(str, p_[key]))}")
+    others = [k for k in p_ if k not in {
+        "name", "type", "rate_per_night", "total_rate", "hotel_class",
+        "extracted_hotel_class", "overall_rating", "reviews", "location_rating",
+        "amenities", "excluded_amenities", "images", "gps_coordinates", "link",
+        "property_token", "ratings", "reviews_breakdown", "nearby_places",
+        "check_in_time", "check_out_time"}
+        and not k.startswith("serpapi")]
+    if others:
+        print(f"      {'其他欄位':<22} {', '.join(others)}")
 
 print("\n--- 有多少筆缺少關鍵欄位 ---")
 for field in ["rate_per_night", "amenities", "gps_coordinates", "nearby_places", "type"]:
