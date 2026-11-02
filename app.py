@@ -32,14 +32,38 @@ MODE_CACHE = "cache"
 MODE_REFRESH = "refresh"
 
 
-def settings_fields(config: dict) -> list[dict]:
-    """整理成畫面好填的格式：目前生效的值 + 標籤 + 說明。"""
+def settings_fields(config: dict, submitted=None) -> list[dict]:
+    """
+    整理成畫面好填的格式：目前生效的值 + 標籤 + 說明。
+
+    submitted 有值時（儲存失敗的情況）改用使用者剛才填的內容，
+    否則他要重打一次才能修正打錯的那一欄。
+    """
     live = settings.current(config)
+
+    def tidy(value):
+        """
+        180.0 顯示成 180。
+
+        config.toml 存的是整數 180，settings.json 存的是浮點數 180.0，
+        兩邊印出來不一樣會讓人以為自己改過東西。
+        """
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return value
+
     fields = []
     for name, (_sec, _key, kind, label, unit, desc) in settings.EDITABLE.items():
+        if submitted is not None:
+            value = (submitted.get(name) == "on" if kind is bool
+                     else submitted.get(name, live[name]))
+        else:
+            value = live[name]
+        if kind is not bool:
+            value = tidy(value)
         fields.append({
             "name": name, "label": label, "unit": unit, "desc": desc,
-            "is_bool": kind is bool, "value": live[name],
+            "is_bool": kind is bool, "value": value,
         })
     return fields
 
@@ -83,13 +107,21 @@ def home():
         values, problem = settings.parse_form(request.form)
         if problem:
             config = settings.apply(base_config)
+            kept = {
+                "destination": request.form.get("destination", ""),
+                "city": request.form.get("city", ""),
+                "check_in": request.form.get("check_in", ""),
+                "check_out": request.form.get("check_out", ""),
+                "mode": request.form.get("mode", MODE_CACHE),
+            }
             return render_template(
-                "index.html", form=empty_form(), settings_error=problem,
+                "index.html", form=kept, settings_error=problem,
                 config=config, labels=config.get("labels", {}),
                 short=config.get("short_labels", {}),
                 known_venues=sorted(geocode.load_venues().keys()),
                 known_cities=[c for c in config["taxi_fare"] if c != "default"],
-                settings_fields=settings_fields(base_config),
+                settings_fields=settings_fields(base_config, request.form),
+                using_custom=bool(settings.load()),
                 MODE_DEMO=MODE_DEMO, MODE_CACHE=MODE_CACHE, MODE_REFRESH=MODE_REFRESH,
             )
         settings.save(values)

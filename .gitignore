@@ -27,3 +27,7 @@ fx_cache.json
 
 # 你在網頁上調整過的限制值（每個人不同，不需版控）
 settings.json
+
+# Node 套件（test_browser.js 用，非必要）
+node_modules/
+package-lock.json
