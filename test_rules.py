@@ -55,6 +55,18 @@ check(abs(estimate_fare(0, tokyo) - tokyo["base_usd"]) < 1e-9, "距離 0 時只�
 check(estimate_fare(10, tokyo) > estimate_fare(1, tokyo), "距離越遠車資越高")
 check(estimate_fare(-5, tokyo) == tokyo["base_usd"], "負距離不會算出負車資")
 
+print("\n--- 預設費率必須在任何距離都夠保守 ---")
+# 這條測試是因為真的踩過坑：原本的預設值 $3.5 + $2.5/km 起跳比東京高、
+# 但每公里比東京低，所以超過 1 公里之後反而「低估」車資，
+# 會讓使用者以為沒超標、實際上超了。起跳與每公里兩個數字要一起看。
+default_fare = config["taxi_fare"]["default"]
+cities = {k: v for k, v in config["taxi_fare"].items() if k != "default"}
+for km in (0.5, 1, 2, 5, 10, 15, 20):
+    d = estimate_fare(km, default_fare)
+    for name, fare in cities.items():
+        check(d >= estimate_fare(km, fare) - 1e-9,
+              f"{km:>4} km：預設 ${d:.2f} ≥ {name} ${estimate_fare(km, fare):.2f}")
+
 print("\n--- 設施三態判定（本專案最關鍵的邏輯）---")
 ac = config["amenity_match"]["air_conditioning"]
 lift = config["amenity_match"]["elevator"]

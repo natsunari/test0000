@@ -96,11 +96,11 @@
       <div class="field" style="flex:0 1 160px">
         <label for="city">城市（查計程車費率）</label>
         <input type="text" id="city" name="city" list="cities" value="{{ form.city }}"
-               placeholder="Tokyo">
+               placeholder="留空＝用預設">
         <datalist id="cities">
           {% for c in known_cities %}<option value="{{ c }}">{% endfor %}
         </datalist>
-        <div class="hint">沒填會用保守預設值</div>
+        <div class="hint">建議填，否則費率只是粗估</div>
       </div>
     </div>
     <div class="row">
