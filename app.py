@@ -120,6 +120,17 @@ def home():
     )
     rate = fx.get_rate(local_currency) if local_currency else None
 
+    # 匯率顯示不出來時要說明原因，否則使用者只會覺得「怎麼沒有」
+    if rate:
+        currency_note = None
+    elif not place.country_code:
+        currency_note = "無法判斷目的地的國家，所以只顯示美金"
+    elif not local_currency:
+        currency_note = (f"國碼「{place.country_code}」不在 config.toml 的"
+                         f" currency_by_country 對照表裡，所以只顯示美金")
+    else:
+        currency_note = f"取不到 {local_currency} 匯率（網路或對方服務問題），只顯示美金"
+
     # ---- 5. 整理給畫面 ----
     fare_used, fare_is_default = rules.get_fare(config, city)
     context.update(
@@ -135,6 +146,7 @@ def home():
         fare_is_default=fare_is_default,
         city_used=city,
         rate=rate,
+        currency_note=currency_note,
         ignored=({"destination": form["destination"].strip() or None,
                   "dates": f'{form["check_in"]} ~ {form["check_out"]}'}
                  if is_demo else None),

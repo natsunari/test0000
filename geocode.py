@@ -122,13 +122,29 @@ def resolve(text: str, *, allow_network: bool = True,
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
     saved = load_venues(venues_path).get(text.lower())
     if saved:
-        return Place(saved["latitude"], saved["longitude"],
-                     saved["label"], "已存地點", saved.get("country_code"))
+        place = Place(saved["latitude"], saved["longitude"],
+                      saved["label"], "已存地點", saved.get("country_code"))
+        # 舊版存的紀錄沒有國碼（當時還沒有當地貨幣功能）。
+        # 缺國碼就重查一次補上，否則這個地點永遠顯示不出當地貨幣。
+        if place.country_code or not allow_network:
+            return place
+        try:
+            fresh = _query_nominatim(text)
+        except LookupError:
+            return place        # 補不到就照舊用，不要因此讓搜尋失敗
+        place.country_code = fresh.country_code
+        save_venue(text, place, venues_path)
+        return place
 
     if not allow_network:
         raise LookupError(f"「{text}」不在已存地點裡，而目前是離線模式")
 
     # 3. 問 Nominatim
+    return _query_nominatim(text)
+
+
+def _query_nominatim(text: str) -> Place:
+    """實際向 Nominatim 查詢。查不到會丟出 LookupError。"""
     _throttle()
     try:
         res = requests.get(

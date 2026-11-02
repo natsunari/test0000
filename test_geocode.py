@@ -82,6 +82,29 @@ with tempfile.TemporaryDirectory() as tmp:
     except LookupError:
         check(True, "空字串會報錯而不是當掉")
 
+print("\n--- 舊版存的地點缺國碼時的處理 ---")
+with tempfile.TemporaryDirectory() as tmp:
+    venues = Path(tmp) / "venues.json"
+    # 模擬加入國碼功能之前存下的紀錄
+    venues.write_text(json.dumps({
+        "tokyo disneyland": {
+            "latitude": 35.6329, "longitude": 139.8804,
+            "label": "東京ディズニーランド, 浦安市, 千葉県, 日本",
+        }
+    }, ensure_ascii=False), encoding="utf-8")
+
+    got = geocode.resolve("Tokyo Disneyland", allow_network=False, venues_path=venues)
+    check(got.latitude == 35.6329, "舊紀錄仍然可用，座標正確")
+    check(got.country_code is None, "離線時補不到國碼，但不會當掉")
+
+    # 有國碼的新紀錄不該觸發重查
+    geocode.save_venue("Big Sight",
+                       geocode.Place(35.6298, 139.7954, "Tokyo Big Sight", "OpenStreetMap", "jp"),
+                       venues)
+    got = geocode.resolve("Big Sight", allow_network=False, venues_path=venues)
+    check(got.country_code == "jp", "有國碼的紀錄直接回傳，不需要連網")
+    check(got.source == "已存地點", "來源仍標示為已存地點")
+
 print("\n--- 壞掉的 venues.json 不會讓程式掛掉 ---")
 with tempfile.TemporaryDirectory() as tmp:
     broken = Path(tmp) / "venues.json"

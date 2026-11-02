@@ -197,7 +197,8 @@
         起跳 ${{ fare_used.base_usd }}／每公里 ${{ fare_used.per_km_usd }}
         {% if fare_is_default %}<b>（保守預設值，建議到 config.toml 填入實際費率）</b>{% endif %}
       {% if rate %}<br>匯率：<b>US$1 = {{ rate.target }} {{ rate.format_rate() }}</b>
-        （{{ rate.as_of }}{% if rate.stale %}，這次未能更新，沿用上次{% endif %}）{% endif %}
+        （{{ rate.as_of }}{% if rate.stale %}，這次未能更新，沿用上次{% endif %}）
+      {% elif currency_note %}<br>當地貨幣：{{ currency_note }}{% endif %}
     </div>
 
     {% macro card(v, kind) %}
