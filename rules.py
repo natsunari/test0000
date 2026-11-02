@@ -105,6 +105,9 @@ class Verdict:
     fare_one_way: float | None = None
     fare_per_day: float | None = None
     fare_is_default: bool = False
+    walkable: bool = False                            # 走得到，不需搭車
+    total_daily_usd: float | None = None              # 房價 + 當日交通費
+    has_availability: bool = False                    # 查詢當下有可訂價格
     amenities: dict = field(default_factory=dict)     # 必要條件的三態結果
     bonuses: dict = field(default_factory=dict)       # 加分條件的三態結果
 
@@ -134,8 +137,15 @@ def evaluate(hotel: dict, destination: tuple[float, float],
 
     # --- 2. 房價：加上緩衝後仍需在上限內 ---
     price = (hotel.get("rate_per_night") or {}).get("extracted_display_price")
+    v.has_availability = price is not None
     if price is None:
-        v.to_confirm.append("這筆沒有價格資料，需要自己點開確認")
+        # Google 是帶著入住日期查的，查不到空房的飯店通常不會有價格。
+        # 所以「沒有價格」就當成「這些日期沒空房」。
+        if config.get("availability", {}).get("require", True):
+            v.passed = False
+            v.rejected_for.append("查詢當下沒有顯示可訂價格，研判這些日期沒有空房")
+        else:
+            v.to_confirm.append("這筆沒有價格資料，需要自己點開確認")
     else:
         pct = config["exchange_rate"]["buffer_percent"]
         buffered = price * (1 + pct / 100)
@@ -163,6 +173,8 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         v.fare_one_way = round(one_way, 2)
         v.fare_per_day = round(one_way * 2, 2)
         v.fare_is_default = is_default
+        # 走得到就不需要搭車，交通費視為 0，也不受塞車與尖峰加成影響
+        v.walkable = road <= config["distance"]["walking_max_km"]
 
         if one_way > budget["taxi_max_one_way_usd"]:
             v.passed = False
@@ -178,6 +190,11 @@ def evaluate(hotel: dict, destination: tuple[float, float],
             )
         if is_default:
             v.to_confirm.append("這個城市還沒填計程車費率，用的是保守預設值")
+
+    # --- 3b. 每日總花費：房價 + 當日交通費（走得到的話交通費算 0）---
+    if v.price_usd is not None:
+        transport = 0.0 if v.walkable else (v.fare_per_day or 0.0)
+        v.total_daily_usd = round(v.price_usd + transport, 2)
 
     # --- 4. 必要設施：只有「明確沒有」才淘汰，「不知道」保留 ---
     have = hotel.get("amenities")
@@ -206,11 +223,15 @@ def evaluate(hotel: dict, destination: tuple[float, float],
 def sort_key(v: Verdict) -> tuple:
     """
     排序用，數字越小越前面。
-    優先序：待確認項目少的 → 有加分的 → 便宜的 → 近的
+
+    規則（使用者選擇的 D 方案）：
+      1. 走路可達的優先 —— 交通費 $0，而且不會因為塞車、尖峰加成
+         或臨時多跑一趟而超出公司上限，風險最低
+      2. 其餘照「每日總花費」（房價 + 交通費）由低到高
+      3. 同分時，待確認項目少的排前面
     """
     return (
+        0 if v.walkable else 1,
+        v.total_daily_usd if v.total_daily_usd is not None else 9e9,
         len(v.to_confirm),
-        0 if YES in v.bonuses.values() else 1,
-        v.price_usd if v.price_usd is not None else 9e9,
-        v.distance_km if v.distance_km is not None else 9e9,
     )

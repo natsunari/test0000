@@ -69,6 +69,29 @@ print("\n--- 第一筆的 nearby_places 完整內容 ---")
 print(json.dumps(properties[0].get("nearby_places"), ensure_ascii=False, indent=2)
       if properties else "（無資料）")
 
+# 交叉比對：沒有價格的那幾筆，到底是哪一種住宿？
+# 這決定「沒價格」能不能當成「沒空房」的判斷依據。
+print("\n--- 住宿型態 × 是否有價格 ---")
+for p_ in properties:
+    pass
+from collections import defaultdict
+cross = defaultdict(lambda: [0, 0])
+for p_ in properties:
+    kind = p_.get("type", "(無)")
+    has_price = (p_.get("rate_per_night") or {}).get("extracted_display_price") is not None
+    cross[kind][0 if has_price else 1] += 1
+print(f"  {'型態':<18} {'有價格':>8} {'沒價格':>8}")
+for kind, (yes, no) in cross.items():
+    print(f"  {kind:<18} {yes:>8} {no:>8}")
+
+print("\n--- 沒有價格的那幾筆長什麼樣 ---")
+for p_ in properties:
+    if (p_.get("rate_per_night") or {}).get("extracted_display_price") is None:
+        print(f"  名稱：{p_.get('name')}")
+        print(f"    type        = {p_.get('type')}")
+        print(f"    有哪些欄位  = {', '.join(sorted(p_.keys()))}")
+        print()
+
 print("\n--- 有多少筆缺少關鍵欄位 ---")
 for field in ["rate_per_night", "amenities", "gps_coordinates", "nearby_places", "type"]:
     missing = sum(1 for p in properties if not p.get(field))

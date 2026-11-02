@@ -9,6 +9,8 @@
 不連網、不花 API 額度，可以隨時重跑。
 """
 
+from copy import deepcopy
+
 from rules import (NO, UNKNOWN, YES, Verdict, check_amenity, estimate_fare,
                    evaluate, haversine_km, load_config, sort_key)
 
@@ -98,13 +100,36 @@ check(any("冷氣" in x for x in v.to_confirm), "但會標記冷氣待確認")
 check(any("電梯" in x for x in v.to_confirm), "也會標記電梯待確認")
 check(v.amenities["air_conditioning"] == UNKNOWN, "狀態記錄為「不知道」")
 
-v = evaluate(hotel(rate_per_night=None), BIG_SIGHT, config, "Tokyo")
-check(v.passed and any("價格" in x for x in v.to_confirm),
-      "沒有價格資料不淘汰，只標記待確認（你的資料有 2 筆缺價格）")
-
 v = evaluate(hotel(gps_coordinates=None), BIG_SIGHT, config, "Tokyo")
 check(v.passed and any("座標" in x for x in v.to_confirm),
       "沒有座標不淘汰，只標記無法計算交通費")
+
+print("\n--- 空房判斷 ---")
+v = evaluate(hotel(rate_per_night=None), BIG_SIGHT, config, "Tokyo")
+check(not v.passed and any("空房" in x for x in v.rejected_for),
+      "沒有價格 → 研判沒空房 → 排除（你的資料有 2 筆缺價格）")
+check(not v.has_availability, "has_availability 標記為 False")
+check(evaluate(hotel(), BIG_SIGHT, config, "Tokyo").has_availability,
+      "有價格的飯店標記為有空房")
+
+relaxed = deepcopy(config)
+relaxed["availability"]["require"] = False
+v = evaluate(hotel(rate_per_night=None), BIG_SIGHT, relaxed, "Tokyo")
+check(v.passed and any("價格" in x for x in v.to_confirm),
+      "把 require 設成 false 時，改為保留並標記待確認")
+
+print("\n--- 走路可達與每日總花費 ---")
+v = evaluate(hotel(), BIG_SIGHT, config, "Tokyo")
+check(v.walkable, "距離 0.47 公里 → 走得到")
+check(v.total_daily_usd == v.price_usd,
+      f"走得到的話交通費算 0，每日總花費 = 房價 ${v.price_usd:.0f}")
+
+v = evaluate(hotel(gps_coordinates={"latitude": 35.6578741, "longitude": 139.8189755},
+                   rate_per_night={"extracted_display_price": 70}),
+             BIG_SIGHT, config, "Tokyo")
+check(not v.walkable, "距離 4.91 公里 → 走不到")
+check(abs(v.total_daily_usd - (70 + v.fare_per_day)) < 0.01,
+      f"走不到就要加交通費，每日總花費 ${v.total_daily_usd:.2f}")
 
 print("\n--- 加分條件 ---")
 v = evaluate(hotel(amenities=["Free breakfast"]), BIG_SIGHT, config, "Tokyo")
@@ -120,14 +145,18 @@ check(v.fare_is_default and any("費率" in x for x in v.to_confirm),
 check(not evaluate(hotel(), BIG_SIGHT, config, "Tokyo").fare_is_default,
       "已填費率的城市不會誤報")
 
-print("\n--- 排序 ---")
-cheap_far = Verdict(name="便宜但遠", passed=True, price_usd=80, distance_km=9)
-pricey_near = Verdict(name="貴但近", passed=True, price_usd=170, distance_km=1)
-needs_check = Verdict(name="待確認多", passed=True, price_usd=60,
-                      distance_km=1, to_confirm=["冷氣", "電梯"])
-order = [v.name for v in sorted([needs_check, pricey_near, cheap_far], key=sort_key)]
-check(order[-1] == "待確認多", "待確認項目多的排最後")
-check(order[0] == "便宜但遠", "同樣零待確認時，便宜的排前面")
+print("\n--- 排序（D 方案：走路可達優先，其餘照每日總花費）---")
+walk_pricey = Verdict(name="走得到但貴", passed=True, price_usd=160,
+                      distance_km=0.4, walkable=True, total_daily_usd=160)
+drive_cheap = Verdict(name="要搭車但便宜", passed=True, price_usd=70,
+                      distance_km=5, walkable=False, total_daily_usd=104)
+drive_cheapest = Verdict(name="要搭車最便宜", passed=True, price_usd=60,
+                         distance_km=5, walkable=False, total_daily_usd=94)
+order = [v.name for v in sorted([drive_cheap, walk_pricey, drive_cheapest],
+                                key=sort_key)]
+check(order[0] == "走得到但貴",
+      "走路可達的排第一，即使房價較高（交通費 $0 且不受塞車與加成影響）")
+check(order[1] == "要搭車最便宜", "其餘照每日總花費由低到高")
 
 print("\n--- 真實資料試算（你的 Tokyo Big Sight 查詢結果）---")
 real = [
@@ -143,12 +172,18 @@ results = [
              BIG_SIGHT, config, "Tokyo")
     for n, p, la, lo in real
 ]
-for v in sorted(results, key=sort_key):
+ordered = sorted(results, key=sort_key)
+for v in ordered:
     state = "合格" if v.passed else "淘汰"
-    print(f"  [{state}] {v.name[:34]:<35}"
-          f"每晚 ${v.price_usd:<5.0f}{v.distance_km:>6.2f} km   "
-          f"單趟 ${v.fare_one_way:<6.2f} 每日 ${v.fare_per_day:.2f}")
+    walk = "🚶走得到" if v.walkable else f"🚕每日 ${v.fare_per_day:.2f}"
+    print(f"  [{state}] {v.name[:33]:<34}"
+          f"房價 ${v.price_usd:<5.0f}{v.distance_km:>6.2f} km  "
+          f"{walk:<16} 每日總計 ${v.total_daily_usd:.2f}")
 check(all(v.passed for v in results), "這 5 間真實飯店全部通過預算與交通費檢查")
+check(ordered[0].name.startswith("Tokyo Bay Ariake"),
+      "走路 4 分鐘到展館的 Washington Hotel 排第一（即使不是最便宜）")
+check(ordered[-1].name.startswith("La Vista"),
+      "每日總計最高的 La Vista 排最後")
 
 print(f"\n{'=' * 60}")
 print(f"OK —— {passed} 項檢查全部通過")
