@@ -7,7 +7,9 @@ SerpApi 檢查腳本
   3. 實際查一次飯店，把回傳格式存下來（這一步會花 1 次額度，會先問你）
 
 執行方式（記得先啟動虛擬環境，看到 (.venv) 才執行）：
-    python check_serpapi.py
+
+    python check_serpapi.py --usage     只查額度，不問任何問題
+    python check_serpapi.py             查額度，再問你要不要測試搜尋
 """
 
 import json
@@ -60,16 +62,36 @@ def check_account(key: str) -> None:
         sys.exit(f"查詢失敗（HTTP {res.status_code}）：{res.text[:300]}")
 
     data = res.json()
-    print("  ✅ 金鑰有效")
-    for label, field in [
-        ("方案", "plan_name"),
-        ("本月上限", "searches_per_month"),
-        ("本月已用", "this_month_usage"),
-        ("本期剩餘", "total_searches_left"),
-        ("每小時上限", "plan_searches_left"),
-    ]:
-        if field in data:
-            print(f"  {label}：{data[field]}")
+    print("  ✅ 金鑰有效\n")
+
+    # 已知欄位給中文說明，其餘照樣印出來 ——
+    # SerpApi 可能新增或改名欄位，寫死一份清單會漏掉東西。
+    known = {
+        "plan_name": "方案名稱",
+        "plan_monthly_price": "月費（USD）",
+        "searches_per_month": "每月額度",
+        "plan_searches_left": "本期剩餘",
+        "extra_credits": "額外點數",
+        "total_searches_left": "合計剩餘",
+        "this_month_usage": "本月已用",
+        "this_hour_searches": "本小時已用",
+        "last_hour_searches": "上一小時用量",
+        "account_rate_limit_per_hour": "每小時上限",
+        "account_email": "帳號",
+        "account_id": "帳號 ID",
+    }
+    width = max(len(v) for v in known.values())
+    for field, value in data.items():
+        label = known.get(field, field)
+        print(f"  {label:<{width}} ：{value}")
+
+    used = data.get("this_month_usage")
+    total = data.get("searches_per_month")
+    if isinstance(used, int) and isinstance(total, int) and total:
+        bar_len = 30
+        filled = min(bar_len, round(bar_len * used / total))
+        print(f"\n  本月用量  [{'█' * filled}{'░' * (bar_len - filled)}] "
+              f"{used} / {total}（{used / total * 100:.1f}%）")
 
 
 def test_hotel_search(key: str) -> None:
@@ -140,5 +162,11 @@ def test_hotel_search(key: str) -> None:
 if __name__ == "__main__":
     api_key = load_key()
     check_account(api_key)
-    test_hotel_search(api_key)
-    print("\n完成。請把上面的輸出整段複製給我。")
+
+    # 只想看額度的話就到此為止，不問問題、不花額度
+    if "--usage" in sys.argv:
+        print("\n（只查了額度，沒有進行任何搜尋，所以沒有消耗額度。）")
+        print("不信的話可以連跑兩次，數字不會變。")
+    else:
+        test_hotel_search(api_key)
+        print("\n完成。")
