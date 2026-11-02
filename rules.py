@@ -123,7 +123,10 @@ class Verdict:
     name: str
     passed: bool                                      # 是否進入候選名單
     rejected_for: list[str] = field(default_factory=list)   # 淘汰原因
-    to_confirm: list[str] = field(default_factory=list)     # 需人工確認
+    to_confirm: list[str] = field(default_factory=list)     # 需人工確認（含設施）
+    # 設施缺資料這件事，卡片上已經用「？電梯」這種標籤表達了，
+    # 不需要再寫一行字。notes 只放標籤表達不出來的事（缺價格、缺座標、費率是估的）。
+    notes: list[str] = field(default_factory=list)
     price_usd: float | None = None
     price_with_buffer: float | None = None
     distance_km: float | None = None
@@ -191,6 +194,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
             )
         else:
             v.to_confirm.append("這筆沒有價格資料，需要自己點開確認")
+            v.notes.append("這筆沒有價格資料，需要自己點開確認")
     else:
         pct = config["exchange_rate"]["buffer_percent"]
         buffered = price * (1 + pct / 100)
@@ -208,6 +212,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     lat, lon = gps.get("latitude"), gps.get("longitude")
     if lat is None or lon is None:
         v.to_confirm.append("這筆沒有座標，無法計算交通費")
+        v.notes.append("這筆沒有座標，無法計算交通費")
     else:
         straight = haversine_km(lat, lon, destination[0], destination[1])
         road = straight * config["distance"]["road_detour_factor"]
@@ -235,6 +240,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
             )
         if is_default:
             v.to_confirm.append("這個城市還沒填計程車費率，用的是保守預設值")
+            v.notes.append("這個城市還沒填計程車費率，用的是保守預設值")
 
     # --- 3b. 每日總花費：房價 + 當日交通費（走得到的話交通費算 0）---
     if v.price_usd is not None:

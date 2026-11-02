@@ -29,9 +29,6 @@ def good_form(**overrides):
         "hotel_max_per_night_usd": "180",
         "taxi_max_one_way_usd": "20",
         "taxi_max_per_day_usd": "40",
-        "walking_max_km": "1.0",
-        "road_detour_factor": "1.3",
-        "buffer_percent": "3",
         "require_availability": "on",
         "assume_air_conditioning": "on",
     }
@@ -48,15 +45,17 @@ check(values["hotel_max_per_night_usd"] == 180.0, "數字正確轉成 float")
 check(values["require_availability"] is True, "勾選的開關為 True")
 check(values["assume_elevator"] is False, "沒勾的開關為 False")
 
+print("\n--- 這些參數刻意不開放在網頁上調整 ---")
+for name in ("walking_max_km", "road_detour_factor", "buffer_percent"):
+    check(name not in settings.EDITABLE,
+          f"{name} 不在設定面板上（屬於計算參數，不是公司規範）")
+
 print("\n--- 表單解析：擋下不合理的值 ---")
 for field, bad, keyword in [
     ("hotel_max_per_night_usd", "abc", "必須是數字"),
     ("hotel_max_per_night_usd", "", "不能空白"),
     ("hotel_max_per_night_usd", "99999", "之間"),
     ("hotel_max_per_night_usd", "0", "之間"),
-    ("walking_max_km", "50", "之間"),
-    ("road_detour_factor", "0.5", "之間"),
-    ("buffer_percent", "-5", "之間"),
 ]:
     _, problem = settings.parse_form(good_form(**{field: bad}))
     check(problem and keyword in problem,

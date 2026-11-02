@@ -86,6 +86,7 @@ def home():
             return render_template(
                 "index.html", form=empty_form(), settings_error=problem,
                 config=config, labels=config.get("labels", {}),
+                short=config.get("short_labels", {}),
                 known_venues=sorted(geocode.load_venues().keys()),
                 known_cities=[c for c in config["taxi_fare"] if c != "default"],
                 settings_fields=settings_fields(base_config),
@@ -103,6 +104,7 @@ def home():
         "saved_note": saved_note,
         "using_custom": bool(settings.load()),
         "labels": config.get("labels", {}),
+        "short": config.get("short_labels", {}),
         "known_venues": sorted(geocode.load_venues().keys()),
         "known_cities": [c for c in config["taxi_fare"] if c != "default"],
         "MODE_DEMO": MODE_DEMO,

@@ -136,7 +136,12 @@ check(v.passed and any("價格" in x for x in v.to_confirm),
 
 print("\n--- 走路可達與每日總花費 ---")
 v = evaluate(hotel(), BIG_SIGHT, config, "Tokyo")
-check(v.walkable, "距離 0.47 公里 → 走得到")
+check(config["distance"]["walking_max_km"] == 0.6, "走路門檻固定為 600 公尺")
+check(v.walkable, "距離 470 公尺 → 走得到")
+# 780 公尺超過 600 門檻，即使只差一點也算要搭車 —— 門檻就是門檻
+far = evaluate(hotel(gps_coordinates={"latitude": 35.6323868, "longitude": 139.7895918}),
+               BIG_SIGHT, config, "Tokyo")
+check(not far.walkable, "距離 780 公尺 → 超過門檻，算要搭車")
 check(v.total_daily_usd == v.price_usd,
       f"走得到的話交通費算 0，每日總花費 = 房價 ${v.price_usd:.0f}")
 
@@ -198,8 +203,8 @@ for v in ordered:
 check(all(v.passed for v in results), "這 5 間真實飯店全部通過預算與交通費檢查")
 check(ordered[0].name.startswith("Tokyo Bay Ariake"),
       "走路 4 分鐘到展館的 Washington Hotel 排第一（即使不是最便宜）")
-check(ordered[-1].name.startswith("La Vista"),
-      "每日總計最高的 La Vista 排最後")
+check(ordered[-1].name.startswith("Sotetsu"),
+      "每日總計最高的 Sotetsu 排最後（780 公尺不算走得到，要加計程車費）")
 
 print(f"\n{'=' * 60}")
 print(f"OK —— {passed} 項檢查全部通過")

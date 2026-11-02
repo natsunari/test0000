@@ -18,6 +18,9 @@ SETTINGS_PATH = Path(__file__).parent / "settings.json"
 
 # 可以在網頁上調整的項目：
 #   表單欄位名稱 -> (config 的區塊, 鍵名, 型別, 中文標籤, 單位, 說明)
+# 刻意不放進來的項目：走路門檻、道路彎繞倍數、價格緩衝。
+# 那些是「怎麼計算」的參數，不是公司規範，放上去只會讓人每次搜尋前猶豫。
+# 要調整的話改 config.toml。
 EDITABLE = {
     "hotel_max_per_night_usd":
         ("budget", "hotel_max_per_night_usd", float, "住宿每晚上限", "USD",
@@ -28,15 +31,6 @@ EDITABLE = {
     "taxi_max_per_day_usd":
         ("budget", "taxi_max_per_day_usd", float, "每日交通上限", "USD",
          "通常是單趟的兩倍"),
-    "walking_max_km":
-        ("distance", "walking_max_km", float, "走路可達門檻", "公里",
-         "這個距離內視為不需搭車，交通費算 0"),
-    "road_detour_factor":
-        ("distance", "road_detour_factor", float, "道路彎繞倍數", "倍",
-         "直線距離換算實際路程，一般市區 1.3"),
-    "buffer_percent":
-        ("exchange_rate", "buffer_percent", float, "價格緩衝", "%",
-         "吸收刷卡手續費與匯率波動，寧可保守"),
     "require_availability":
         ("availability", "require", bool, "只列出有空房的", "",
          "沒有可訂價格的飯店直接排除"),
@@ -53,9 +47,6 @@ LIMITS = {
     "hotel_max_per_night_usd": (1, 2000),
     "taxi_max_one_way_usd": (1, 500),
     "taxi_max_per_day_usd": (1, 1000),
-    "walking_max_km": (0.1, 10),
-    "road_detour_factor": (1.0, 3.0),
-    "buffer_percent": (0, 50),
 }
 
 

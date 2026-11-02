@@ -59,10 +59,14 @@
     .meta b{color:var(--fg)}
 
     /* ---------- 版面：搜尋在左、限制設定在右 ---------- */
-    .top{display:flex;gap:18px;align-items:flex-start;margin-bottom:22px}
-    .top .search{flex:1 1 560px;min-width:0;margin-bottom:0}
-    .settings{flex:0 0 300px}
-    @media (max-width:860px){ .top{flex-direction:column} .settings{flex:1 1 auto;width:100%} }
+    .top{display:flex;gap:18px;align-items:flex-start;margin-bottom:22px;
+      justify-content:center}
+    .top .search{flex:1 1 520px;min-width:0;max-width:620px;margin-bottom:0}
+    .settings{flex:0 1 420px;min-width:0}
+    @media (max-width:980px){ .top{flex-direction:column;align-items:stretch}
+      .top .search{max-width:none} .settings{flex:1 1 auto;width:100%} }
+    .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}
+    .sgrid .switch{grid-column:1 / -1}
     .settings form{padding:16px 17px;margin-bottom:0}
     .settings h3{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:7px}
     .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;
@@ -208,6 +212,7 @@
       </h3>
       <p class="sidenote">公司規範或物價有變動時改這裡。改完按儲存，之後每次搜尋都會套用。</p>
 
+      <div class="sgrid">
       {% for f in settings_fields %}
         {% if f.is_bool %}
           <label class="switch">
@@ -224,6 +229,7 @@
           </div>
         {% endif %}
       {% endfor %}
+      </div>
 
       <div class="sbtns">
         <button type="submit" class="small">儲存限制</button>
@@ -264,8 +270,7 @@
       套用的限制：房價 ≤ <b>${{ config.budget.hotel_max_per_night_usd }}</b>／晚，
         交通單趟 ≤ <b>${{ config.budget.taxi_max_one_way_usd }}</b>、
         每日 ≤ <b>${{ config.budget.taxi_max_per_day_usd }}</b>，
-        走路門檻 <b>{{ config.distance.walking_max_km }}</b> km，
-        緩衝 <b>{{ config.exchange_rate.buffer_percent }}%</b>
+        走路可達門檻 <b>{{ (config.distance.walking_max_km * 1000)|round|int }}</b> 公尺
         {% if using_custom %}<b>（已自訂）</b>{% endif %}<br>
       計程車費率：<b>{{ city_used or '未指定' }}</b>
         起跳 ${{ fare_used.base_usd }}／每公里 ${{ fare_used.per_km_usd }}
@@ -297,23 +302,29 @@
             </div>
           {% endif %}
           <div class="chips">
-            {% if v.distance_km is not none %}<span class="chip">{{ '%.2f'|format(v.distance_km) }} km</span>{% endif %}
-            {% if v.walkable %}<span class="chip walk">🚶 走得到・交通費 $0</span>
-            {% elif v.fare_per_day %}<span class="chip">🚕 每日 ${{ '%.2f'|format(v.fare_per_day) }}</span>{% endif %}
+            {% if v.walkable %}
+              <span class="chip walk">🚶 走路 {{ (v.distance_km * 1000)|round|int }} m</span>
+            {% elif v.fare_per_day %}
+              <span class="chip">🚕 每日 ${{ '%.2f'|format(v.fare_per_day) }}</span>
+            {% endif %}
             {% if v.total_daily_usd %}<span class="chip total">每日總計 ${{ '%.2f'|format(v.total_daily_usd) }}
               {%- if rate %} ・ {{ rate.target }} {{ rate.format(v.total_daily_usd) }}{% endif %}</span>{% endif %}
           </div>
           <div class="chips">
-            {% for key, state in v.amenities.items() %}
-              <span class="chip {{ 'y' if state == '有' else ('n' if state == '沒有' else ('a' if state == '推定有' else '')) }}"
-                    {% if state == '推定有' %}title="Google 沒有這筆資料，依設定推定為有，不是查證過的"{% endif %}>{{ labels.get(key, key) }}：{{ state }}</span>
-            {% endfor %}
-            {% for key, state in v.bonuses.items() %}
-              <span class="chip {{ 'y' if state == '有' else '' }}">{{ labels.get(key, key) }}：{{ state }}</span>
+            {% for key, state in (v.amenities.items()|list) + (v.bonuses.items()|list) %}
+              {% if state == '有' %}
+                <span class="chip y" title="資料明確標示有">Ｏ{{ short.get(key, key) }}</span>
+              {% elif state == '沒有' %}
+                <span class="chip n" title="資料明確標示沒有">Ｘ{{ short.get(key, key) }}</span>
+              {% elif state == '推定有' %}
+                <span class="chip a" title="Google 沒有這筆資料，依設定推定為有，不是查證過的">？{{ short.get(key, key) }}</span>
+              {% else %}
+                <span class="chip" title="Google 沒有這筆資料，需要自己確認">？{{ short.get(key, key) }}</span>
+              {% endif %}
             {% endfor %}
           </div>
           {% if v.rejected_for %}<ul class="reasons bad">{% for r in v.rejected_for %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
-          {% if v.to_confirm %}<ul class="reasons">{% for r in v.to_confirm %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+          {% if v.notes %}<ul class="reasons">{% for r in v.notes %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
           {% if v.link %}<div class="go"><a href="{{ v.link }}" target="_blank" rel="noopener">查看飯店 →</a></div>{% endif %}
         </div>
       </div>
@@ -325,7 +336,8 @@
 
     <h2 class="warn">⚠️ 符合限制，但有項目要自己確認 <span class="count">{{ needs_check|length }}</span></h2>
     {% if needs_check %}
-      <p class="lead">預算與交通費都過關。列出的是 Google 沒有提供資料的項目 ——「不知道」不代表沒有，點開飯店頁面確認一下即可。</p>
+      <p class="lead">預算與交通費都過關。標籤上的 <b>？</b> 代表 Google 沒有這筆資料 —— 不代表沒有，點開飯店頁面確認一下即可。
+        <span style="white-space:nowrap">（Ｏ＝有、Ｘ＝沒有、？＝未確認）</span></p>
       <div class="grid">{% for v in needs_check %}{{ card(v, 'warn') }}{% endfor %}</div>
     {% else %}<p class="empty">無</p>{% endif %}
 
