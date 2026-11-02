@@ -44,6 +44,17 @@ _COORD_RE = re.compile(
     r"^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$"
 )
 
+# 度分秒格式：35°37'58"N 139°52'50"E
+# Google Maps 有時候會用這種寫法顯示座標，使用者直接複製就會是這樣。
+_DMS_RE = re.compile(
+    r"""^\s*
+    (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([NSns])
+    \s*[,\s]\s*
+    (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([EWew])
+    \s*$""",
+    re.VERBOSE,
+)
+
 
 # Google Maps 連結裡的座標有好幾種寫法，這些是常見的：
 #   .../@25.0339,121.5645,17z/...        地圖中心
@@ -124,6 +135,9 @@ class Place:
     label: str                      # 顯示給使用者確認用
     source: str                     # "座標輸入" / "已存地點" / "OpenStreetMap"
     country_code: str | None = None  # 'jp'、'sg'…，用來決定當地貨幣
+    # 查飯店時要送給 Google 的地名。
+    # 不能直接用使用者輸入的字 —— 座標 Google 看不懂，會回傳完全無關的地區。
+    area: str | None = None
 
 
 def parse_coordinates(text: str) -> tuple[float, float] | None:
@@ -131,13 +145,69 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
     看看輸入是不是一組座標。是就回傳 (緯度, 經度)，不是就回傳 None。
     緯度必須在 -90~90、經度 -180~180，否則視為不是座標。
     """
-    m = _COORD_RE.match(text or "")
+    text = text or ""
+    dms = _DMS_RE.match(text)
+    if dms:
+        d1, m1, s1, ns, d2, m2, s2, ew = dms.groups()
+        lat = int(d1) + int(m1) / 60 + float(s1) / 3600
+        lon = int(d2) + int(m2) / 60 + float(s2) / 3600
+        if ns.upper() == "S":
+            lat = -lat
+        if ew.upper() == "W":
+            lon = -lon
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            return round(lat, 6), round(lon, 6)
+        return None
+
+    m = _COORD_RE.match(text)
     if not m:
         return None
     lat, lon = float(m.group(1)), float(m.group(2))
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return None
     return lat, lon
+
+
+def _area_from_address(address: dict | None) -> str | None:
+    """
+    把 Nominatim 的地址細節組成「城市, 國家」這種適合查飯店的字串。
+
+    為什麼不用完整地址：Google Hotels 吃的是地區，給它門牌號碼反而查不好。
+    為什麼不用使用者輸入：那可能是座標，Google 看不懂就會回傳無關地區的結果。
+    """
+    if not address:
+        return None
+    city = next((address[k] for k in
+                 ("city", "town", "village", "municipality", "suburb", "county")
+                 if address.get(k)), None)
+    country = address.get("country")
+    parts = [p for p in (city, country) if p]
+    return ", ".join(parts) if parts else None
+
+
+def reverse_lookup(lat: float, lon: float) -> tuple[str | None, str | None]:
+    """
+    用座標反查地名與國碼。回傳 (地名, 國碼)，查不到就都是 None。
+
+    使用者貼座標時一定要做這一步，否則查飯店會拿座標字串去問 Google，
+    而 Google 看不懂座標，會回傳完全無關地區的飯店。
+    """
+    _throttle()
+    try:
+        res = requests.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "json",
+                    "addressdetails": 1, "zoom": 12},
+            headers={"User-Agent": USER_AGENT},
+            timeout=20,
+        )
+        if res.status_code != 200:
+            return None, None
+        data = res.json()
+    except (requests.RequestException, ValueError):
+        return None, None
+    address = data.get("address") or {}
+    return _area_from_address(address), address.get("country_code")
 
 
 def load_venues(path: Path | None = None) -> dict:
@@ -160,6 +230,7 @@ def save_venue(key: str, place: Place, path: Path | None = None) -> None:
         "longitude": place.longitude,
         "label": place.label,
         "country_code": place.country_code,
+        "area": place.area,
     }
     p.write_text(json.dumps(venues, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -185,34 +256,35 @@ def resolve(text: str, *, allow_network: bool = True,
     if not text:
         raise LookupError("請輸入目的地")
 
-    # 1. 直接是座標
+    # 1. 直接是座標（含度分秒格式），或 Google Maps 連結
     coords = parse_coordinates(text)
+    source = "座標輸入"
+    if not coords:
+        coords = coordinates_from_maps_url(text)
+        source = "Maps 連結"
     if coords:
-        return Place(coords[0], coords[1],
-                     f"座標 {coords[0]}, {coords[1]}", "座標輸入")
-
-    # 1b. Google Maps 連結
-    coords = coordinates_from_maps_url(text)
-    if coords:
-        return Place(coords[0], coords[1],
-                     f"座標 {coords[0]}, {coords[1]}（取自 Google Maps 連結）",
-                     "Maps 連結")
+        lat, lon = coords
+        area, country = (reverse_lookup(lat, lon) if allow_network else (None, None))
+        label = f"座標 {lat}, {lon}"
+        if area:
+            label += f"（{area}）"
+        return Place(lat, lon, label, source, country, area)
 
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
     saved = load_venues(venues_path).get(text.lower())
     if saved:
         place = Place(saved["latitude"], saved["longitude"],
-                      saved["label"], "已存地點", saved.get("country_code"))
-        # 舊版存的紀錄沒有國碼（當時還沒有當地貨幣功能）。
-        # 缺國碼就重查一次補上，否則這個地點永遠顯示不出當地貨幣。
-        if place.country_code or not allow_network:
+                      saved["label"], "已存地點", saved.get("country_code"),
+                      saved.get("area"))
+        # 舊版存的紀錄沒有國碼與地名（當時還沒有這些功能）。
+        # 缺了就反查一次補上，否則當地貨幣顯示不出來、查飯店也會用錯字串。
+        if (place.country_code and place.area) or not allow_network:
             return place
-        try:
-            fresh = _query_nominatim(text)
-        except LookupError:
-            return place        # 補不到就照舊用，不要因此讓搜尋失敗
-        place.country_code = fresh.country_code
-        save_venue(text, place, venues_path)
+        area, country = reverse_lookup(place.latitude, place.longitude)
+        if area or country:
+            place.area = place.area or area
+            place.country_code = place.country_code or country
+            save_venue(text, place, venues_path)
         return place
 
     if not allow_network:
@@ -282,6 +354,7 @@ def _query_nominatim(text: str) -> Place:
         raise NotFound(f"OpenStreetMap 裡找不到「{text}」")
 
     top = results[0]
-    country = (top.get("address") or {}).get("country_code")
+    address = top.get("address") or {}
     return Place(float(top["lat"]), float(top["lon"]),
-                 top.get("display_name", text), "OpenStreetMap", country)
+                 top.get("display_name", text), "OpenStreetMap",
+                 address.get("country_code"), _area_from_address(address))

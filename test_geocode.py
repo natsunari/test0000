@@ -43,6 +43,18 @@ for text, expect in [
 ]:
     check(geocode.parse_coordinates(text) == expect, f"「{text}」辨識為座標 {expect}")
 
+print("\n--- 度分秒格式（Google Maps 複製出來常常是這種）---")
+for text, lat, lon in [
+    ("""35°37'58"N 139°52'50"E""", 35.6328, 139.8806),   # 東京迪士尼
+    ("""25°02'02.0"N 121°33'53.0"E""", 25.0339, 121.5647),  # 台北 101
+    ("""33°52'08"S 151°12'33"E""", -33.8689, 151.2092),  # 雪梨歌劇院（南半球、東經）
+]:
+    got = geocode.parse_coordinates(text)
+    ok = got and abs(got[0] - lat) < 0.01 and abs(got[1] - lon) < 0.01
+    check(ok, f"「{text}」→ {got}，約等於 ({lat}, {lon})")
+check(geocode.parse_coordinates("""91°00'00"N 0°00'00"E""") is None,
+      "度分秒超出範圍也會被擋下")
+
 print("\n--- 不是座標的輸入 ---")
 for text in [
     "Tokyo Big Sight",
@@ -63,6 +75,46 @@ print("\n--- 輸入座標時不連網 ---")
 place = geocode.resolve("35.6298, 139.7954", allow_network=False)
 check(place.latitude == 35.6298 and place.longitude == 139.7954, "座標原封不動帶過去")
 check(place.source == "座標輸入", "來源標示為座標輸入")
+
+print("\n--- 由地址細節組出查飯店用的地名 ---")
+check(geocode._area_from_address(
+    {"city": "浦安市", "state": "千葉県", "country": "日本",
+     "road": "Parade Route", "postcode": "279-8505"}) == "浦安市, 日本",
+    "取城市與國家，捨棄門牌與郵遞區號（Google Hotels 吃的是地區）")
+check(geocode._area_from_address(
+    {"town": "Urayasu", "country": "Japan"}) == "Urayasu, Japan",
+    "沒有 city 時退而用 town")
+check(geocode._area_from_address({"country": "Japan"}) == "Japan",
+      "只有國家也能用")
+check(geocode._area_from_address({}) is None, "完全沒有資料時回傳 None")
+check(geocode._area_from_address(None) is None, "address 是 None 也不會當掉")
+
+print("\n--- ⚠️ 貼座標時一定要反查地名 ---")
+# 這是實際踩過的 bug：貼東京迪士尼的座標，查飯店卻回傳美國的露營地，
+# 因為 Google Hotels 收到的是座標字串而不是地名。
+reverse_payload = {"address": {"city": "浦安市", "country": "日本",
+                               "country_code": "jp"}}
+
+
+class ReverseResponse:
+    status_code = 200
+    @staticmethod
+    def json():
+        return reverse_payload
+
+
+original_get = geocode.requests.get
+geocode._last_request_at = 0.0
+geocode.requests.get = lambda *a, **k: ReverseResponse()
+try:
+    place = geocode.resolve("""35°37'58"N 139°52'50"E""",
+                            venues_path=Path(tempfile.gettempdir()) / "nope.json")
+    check(place.area == "浦安市, 日本",
+          f"座標會反查成地名「{place.area}」，查飯店時才不會送座標字串給 Google")
+    check(place.country_code == "jp", "同時取得國碼，當地貨幣才顯示得出來")
+    check("浦安市" in place.label, "畫面上的目的地也會顯示反查到的地名")
+finally:
+    geocode.requests.get = original_get
 
 print("\n--- 已存地點 ---")
 with tempfile.TemporaryDirectory() as tmp:

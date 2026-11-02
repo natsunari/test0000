@@ -133,6 +133,7 @@ class Verdict:
     fare_one_way: float | None = None
     fare_per_day: float | None = None
     fare_is_default: bool = False
+    wrong_type: bool = False          # 不是飯店（民宿、露營地…），畫面整筆不顯示
     walkable: bool = False                            # 走得到，不需搭車
     total_daily_usd: float | None = None              # 房價 + 當日交通費
     has_availability: bool = False                    # 查詢當下有可訂價格
@@ -172,6 +173,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     allowed = [t.lower() for t in config["accommodation"]["allowed_types"]]
     if kind not in allowed:
         v.passed = False
+        v.wrong_type = True
         v.rejected_for.append(f"住宿類型是「{hotel.get('type') or '未知'}」，不是飯店")
 
     # --- 2. 房價：加上緩衝後仍需在上限內 ---

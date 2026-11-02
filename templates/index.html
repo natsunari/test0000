@@ -324,9 +324,14 @@
       </div>
     {% endif %}
 
+    {% if far_warning %}<div class="error">{{ far_warning }}</div>{% endif %}
+
     <div class="meta">
       目的地：<b>{{ place.label }}</b>（{{ place.source }}）<br>
-      資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}；共 {{ total }} 筆住宿<br>
+      查飯店用的地名：<b>{{ hotel_query }}</b>
+        {% if place.area %}（由目的地反查）{% endif %}<br>
+      資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}；共 {{ total }} 筆住宿{% if hidden_types %}，
+      其中 {{ hidden_types }} 筆不是飯店（民宿、露營地等）已直接略過{% endif %}<br>
       套用的限制：房價 ≤ <b>${{ config.budget.hotel_max_per_night_usd }}</b>／晚，
         交通單趟 ≤ <b>${{ config.budget.taxi_max_one_way_usd }}</b>、
         每日 ≤ <b>${{ config.budget.taxi_max_per_day_usd }}</b>，

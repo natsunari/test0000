@@ -81,6 +81,9 @@ print("\n--- 淘汰規則 ---")
 v = evaluate(hotel(type="vacation rental"), BIG_SIGHT, config, "Tokyo")
 check(not v.passed and any("住宿類型" in x for x in v.rejected_for),
       "民宿／短租公寓被淘汰（你的資料裡真的混進 2 筆）")
+check(v.wrong_type, "並標記 wrong_type，讓畫面整筆隱藏而不是放進「已排除」")
+check(not evaluate(hotel(), BIG_SIGHT, config, "Tokyo").wrong_type,
+      "正常飯店不會被誤標")
 
 v = evaluate(hotel(rate_per_night={"extracted_display_price": 250}),
              BIG_SIGHT, config, "Tokyo")

@@ -15,6 +15,8 @@
  * 這是開發用的輔助測試，平常使用這個工具不需要跑它。
  */
 
+const { chromium } = require('playwright');
+
 (async () => {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const page = await browser.newPage();

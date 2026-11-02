@@ -173,9 +173,15 @@ def home():
     try:
         if is_demo:
             data, source = search.load_fixture(), "示範資料"
+            hotel_query = "Tokyo Big Sight"
         else:
+            # ⚠️ 查飯店不能用使用者輸入的原字串。
+            # 貼座標時 Google Hotels 看不懂，會回傳完全無關地區的結果
+            # （實際踩過：貼東京迪士尼的座標，查出來是美國的露營地）。
+            # 所以用反查出來的地名，查不到地名才退回原字串。
+            hotel_query = place.area or form["destination"]
             data, source = search.search_hotels(
-                form["destination"], form["check_in"], form["check_out"],
+                hotel_query, form["check_in"], form["check_out"],
                 use_cache=form["mode"] != MODE_REFRESH,
             )
     except (search.MissingKey, search.SearchFailed) as exc:
@@ -183,11 +189,26 @@ def home():
 
     # ---- 3. 套用規則 ----
     city = DEMO_CITY if is_demo else (form["city"].strip() or None)
-    verdicts = [
+    all_verdicts = [
         rules.evaluate(h, (place.latitude, place.longitude), config, city)
         for h in data.get("properties", [])
     ]
+    # 不是飯店的整筆不顯示 —— 連「已排除」都不用出現，那不是你的選項
+    hidden_types = sum(1 for v in all_verdicts if v.wrong_type)
+    verdicts = [v for v in all_verdicts if not v.wrong_type]
     verdicts.sort(key=rules.sort_key)
+
+    # 防呆：如果連最近的一間都在幾十公里外，幾乎可以確定是查飯店的字串
+    # 沒對到目的地，而不是真的附近沒飯店。這種情況要明講，
+    # 不然畫面上會是一堆看似正常、其實毫不相干的結果。
+    distances = [v.distance_km for v in verdicts if v.distance_km is not None]
+    far_warning = None
+    if distances and min(distances) > 50:
+        far_warning = (
+            f"⚠️ 最近的一間也在 {min(distances):.0f} 公里外，"
+            f"這通常表示查飯店用的地名「{hotel_query}」沒有對到你的目的地。"
+            f"請換個寫法，或直接輸入展館名稱。"
+        )
 
     # ---- 4. 當地貨幣換算 ----
     local_currency = fx.currency_for_country(
@@ -213,7 +234,10 @@ def home():
         source=source,
         searched=True,
         fetched_at=data.get("_fetched_at"),
-        total=len(verdicts),
+        total=len(all_verdicts),
+        hidden_types=hidden_types,
+        hotel_query=hotel_query,
+        far_warning=far_warning,
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],
         rejected=[v for v in verdicts if not v.passed],
