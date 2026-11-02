@@ -15,6 +15,8 @@ from rules import (ASSUMED, NO, UNKNOWN, YES, resolve_fare, Verdict, check_ameni
                    evaluate, haversine_km, load_config, sort_key)
 
 config = load_config()
+import rules as _rules
+rules_categories = _rules.CATEGORIES
 
 # 東京國際展示場（Tokyo Big Sight）的座標，當作出差目的地
 BIG_SIGHT = (35.6298, 139.7954)
@@ -200,6 +202,29 @@ for name in ["Dormy Inn Premium Sapporo", "Park Hyatt Sydney",
     check(not v.looks_like_dorm, f"放行「{name}」")
 check(not ev(hotel(name="Dormy Inn Premium Sapporo")).looks_like_dorm,
       "Dormy Inn 是正常商務飯店連鎖，有獨立房間與衛浴，不可因為含 dorm 就擋下")
+
+print("\n--- 淘汰原因要分類，沒有結果時才說得出是哪條規則擋的 ---")
+cases = [
+    (hotel(type="vacation rental"), "type"),
+    (hotel(name="Sydney YHA"), "dorm"),
+    (hotel(rate_per_night={"extracted_display_price": 400}), "price_high"),
+    (hotel(rate_per_night=None), "sold_out"),
+    (hotel(gps_coordinates={"latitude": 35.99, "longitude": 139.79}), "fare"),
+    (hotel(amenities=[], excluded_amenities=["No elevator"]), "amenity"),
+]
+for h, expected in cases:
+    v = ev(h)
+    check(v.reject_category == expected,
+          f"分類為「{rules_categories.get(expected, expected)}」（{expected}）")
+
+floored = deepcopy(config)
+floored["budget"]["hotel_min_per_night_usd"] = 150
+v = ev(hotel(rate_per_night={"extracted_display_price": 100}), cfg=floored)
+check(v.reject_category == "price_low", "低於下限分類為 price_low")
+check(not v.looks_like_dorm,
+      "價格下限刷掉的不可標成通舖 —— 那會整筆消失，設錯時就看不見也改不回來")
+check(any("你設的下限" in x for x in v.rejected_for),
+      "淘汰原因明說是「你設的」下限，不是固定規則")
 
 print("\n--- 保留規則：「不知道」絕不可淘汰 ---")
 v = ev(hotel(), "Tokyo")

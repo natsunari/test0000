@@ -132,9 +132,12 @@ cheap = {"name": "Wake Up! Sydney", "type": "hotel",
 check(ev(cheap).passed, "下限預設為 0（關閉）時，便宜的飯店照樣通過")
 floored = settings.apply(config, {"hotel_min_per_night_usd": 80.0})
 v = ev(cheap, floored)
-check(not v.passed and v.looks_like_dorm,
-      "下限設 80 之後，US$40 的被擋下並標記為通舖")
-check(any("通舖" in x for x in v.rejected_for), "淘汰原因說明是價位問題")
+check(not v.passed, "下限設 80 之後，US$40 的被擋下")
+check(v.reject_category == "price_low", "分類為 price_low")
+check(not v.looks_like_dorm,
+      "但不標成通舖 —— 通舖是整筆隱藏的，價格下限是你自己設的數字，"
+      "設錯時必須看得見才改得回來")
+check(any("下限" in x for x in v.rejected_for), "淘汰原因說明是低於下限")
 normal = {**cheap, "name": "Sofitel Sydney",
           "rate_per_night": {"extracted_display_price": 165}}
 check(ev(normal, floored).passed, "US$165 的正常飯店不受影響")

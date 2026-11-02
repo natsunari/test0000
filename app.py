@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import date
 from urllib.parse import quote_plus
 
@@ -262,6 +263,17 @@ def home():
         v.compare_url = ("https://www.google.com/travel/search?q="
                          + quote_plus(query))
 
+    # 統計淘汰原因，並記下實際的價格區間。
+    # 沒有任何結果時，光說「沒有符合的」毫無幫助 ——
+    # 要讓人看得出來是哪一條規則刷掉的、該調哪個數字。
+    breakdown = Counter(
+        rules.CATEGORIES.get(v.reject_category, "其他")
+        for v in all_verdicts if not v.passed and v.reject_category
+    )
+    prices = sorted(v.price_usd for v in all_verdicts if v.price_usd is not None)
+    price_range = ((prices[0], prices[len(prices) // 2], prices[-1])
+                   if prices else None)
+
     # 防呆：連最近的一間都在幾十公里外，幾乎可以確定是查飯店的字串沒對到目的地
     distances = [v.distance_km for v in verdicts if v.distance_km is not None]
     far_warning = None
@@ -293,7 +305,8 @@ def home():
     return page(
         form=form, config=config, place=place, source=source, searched=True,
         fetched_at=data.get("_fetched_at"), total=len(all_verdicts),
-        hidden_types=hidden_types, hidden_dorms=hidden_dorms, hotel_query=hotel_query,
+        hidden_types=hidden_types, hidden_dorms=hidden_dorms,
+        breakdown=breakdown.most_common(), price_range=price_range, hotel_query=hotel_query,
         far_warning=far_warning,
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],

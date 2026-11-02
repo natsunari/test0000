@@ -114,6 +114,13 @@
       .spinner{animation-duration:2.4s}
     }
     .muted{color:var(--muted)}
+    .diagnose{background:var(--warn-bg);border:1px solid var(--warn-line);
+      border-radius:12px;padding:16px 18px;margin:24px 0}
+    .diagnose h3{margin:0 0 8px;font-size:16px;color:var(--warn)}
+    .diagnose p{margin:0 0 8px;font-size:14px}
+    .diagnose ul{margin:0 0 10px;padding-left:20px;font-size:14px}
+    .diagnose li{margin:2px 0}
+    .diagnose .hintrow{color:var(--muted);font-size:13px;margin:0}
 
     /* ---------- 結果 ---------- */
     h2{font-size:17px;margin:30px 0 4px;display:flex;align-items:center;gap:8px}
@@ -472,6 +479,26 @@
         </div>
       </div>
     {% endmacro %}
+
+    {% if not clear and not needs_check %}
+      <div class="diagnose">
+        <h3>沒有任何飯店通過篩選</h3>
+        <p>這 {{ total }} 筆分別卡在哪一條規則：</p>
+        <ul>
+          {% for name, count in breakdown %}<li><b>{{ count }}</b> 筆 —— {{ name }}</li>{% endfor %}
+        </ul>
+        {% if price_range %}
+          <p>這批結果的實際房價：最低 <b>US${{ '%.0f'|format(price_range[0]) }}</b>、
+            中位數 <b>US${{ '%.0f'|format(price_range[1]) }}</b>、
+            最高 <b>US${{ '%.0f'|format(price_range[2]) }}</b>
+            （你設的範圍是 ${{ '%g'|format(config.budget.hotel_min_per_night_usd) }}
+            ～ ${{ '%g'|format(config.budget.hotel_max_per_night_usd) }}）。</p>
+        {% endif %}
+        <p class="hintrow">常見的調整方向：
+          房價卡住就改上下限；交通費卡住多半是這個地區沒填費率、用了偏高的保守估計，
+          或是目的地周圍真的沒有夠近的飯店。</p>
+      </div>
+    {% endif %}
 
     <h2 class="ok">✅ 完全符合 <span class="count">{{ clear|length }}</span></h2>
     {% if clear %}<div class="grid">{% for v in clear %}{{ card(v, 'ok') }}{% endfor %}</div>

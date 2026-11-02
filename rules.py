@@ -148,7 +148,10 @@ class Verdict:
     fare_per_day: float | None = None
     fare_is_default: bool = False
     wrong_type: bool = False          # 不是飯店（民宿、露營地…），畫面整筆不顯示
-    looks_like_dorm: bool = False     # 名稱看起來是通舖型住宿，同樣整筆不顯示
+    looks_like_dorm: bool = False     # 名稱或簡介顯示是通舖型住宿，整筆不顯示
+    # 第一個淘汰原因的分類。沒有結果時用來統計「是哪一條規則刷掉的」，
+    # 否則使用者只會看到三區全空、完全不知道該調哪個設定。
+    reject_category: str | None = None
     walkable: bool = False                            # 走得到，不需搭車
     total_daily_usd: float | None = None              # 房價 + 當日交通費
     has_availability: bool = False                    # 查詢當下有可訂價格
@@ -161,6 +164,18 @@ class Verdict:
     rating: float | None = None
     reviews: int | None = None
     stars: int | None = None
+
+
+# 淘汰原因的分類（畫面上用來統計）
+CATEGORIES = {
+    "type": "不是飯店",
+    "dorm": "通舖或共用衛浴",
+    "price_high": "超過房價上限",
+    "price_low": "低於房價下限",
+    "fare": "交通費超標",
+    "sold_out": "查詢當下沒有空房",
+    "amenity": "明確缺少必要設施",
+}
 
 
 def evaluate(hotel: dict, destination: tuple[float, float],
@@ -193,6 +208,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     if kind not in allowed:
         v.passed = False
         v.wrong_type = True
+        v.reject_category = v.reject_category or "type"
         v.rejected_for.append(f"住宿類型是「{hotel.get('type') or '未知'}」，不是飯店")
 
     # --- 1b. 名稱看起來就是通舖的，直接排除 ---
@@ -206,6 +222,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         if re.search(r"\b" + re.escape(word.strip().lower()), lowered):
             v.passed = False
             v.looks_like_dorm = True
+            v.reject_category = v.reject_category or "dorm"
             v.rejected_for.append(f"名稱含「{word}」，研判是通舖型住宿")
             break
 
@@ -217,6 +234,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
             if re.search(r"\b" + re.escape(phrase.strip().lower()), description):
                 v.passed = False
                 v.looks_like_dorm = True
+                v.reject_category = v.reject_category or "dorm"
                 v.rejected_for.append(f"簡介提到「{phrase}」，研判是通舖或共用衛浴")
                 break
 
@@ -234,6 +252,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         # 所以這道過濾同時也補上了 type 欄位不可靠的漏洞。
         if config.get("availability", {}).get("require", True):
             v.passed = False
+            v.reject_category = v.reject_category or "sold_out"
             v.rejected_for.append(
                 "查詢當下沒有可訂價格 —— 可能是這些日期沒空房，"
                 "也可能不是真正可訂的飯店"
@@ -248,17 +267,19 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         v.price_with_buffer = round(buffered, 2)
         floor = budget.get("hotel_min_per_night_usd", 0) or 0
         if floor and price < floor:
+            # 刻意不標成 looks_like_dorm —— 那會讓它整筆消失。
+            # 下限是你自己設的數字，設錯時必須看得見才改得回來。
             v.passed = False
-            v.looks_like_dorm = True
+            v.reject_category = v.reject_category or "price_low"
             v.rejected_for.append(
-                f"每晚 ${price} 低於下限 ${floor:g}，"
-                f"這個價位在當地通常是通舖或共用衛浴"
+                f"每晚 ${price} 低於你設的下限 ${floor:g}"
             )
         cap = budget["hotel_max_per_night_usd"]
         if buffered > cap:
             v.passed = False
+            v.reject_category = v.reject_category or "price_high"
             v.rejected_for.append(
-                f"每晚 ${price}，加 {pct}% 緩衝後 ${buffered:.2f}，超過上限 ${cap}"
+                f"每晚 ${price}，加 {pct}% 緩衝後 ${buffered:.2f}，超過上限 ${cap:g}"
             )
 
     # --- 3. 交通費：距離換算車資，單趟與每日都要在上限內 ---
@@ -282,15 +303,17 @@ def evaluate(hotel: dict, destination: tuple[float, float],
 
         if one_way > budget["taxi_max_one_way_usd"]:
             v.passed = False
+            v.reject_category = v.reject_category or "fare"
             v.rejected_for.append(
                 f"距離 {road:.1f} 公里，單趟約 ${one_way:.2f}，"
-                f"超過單趟上限 ${budget['taxi_max_one_way_usd']}"
+                f"超過單趟上限 ${budget['taxi_max_one_way_usd']:g}"
             )
         elif v.fare_per_day > budget["taxi_max_per_day_usd"]:
             v.passed = False
+            v.reject_category = v.reject_category or "fare"
             v.rejected_for.append(
                 f"來回約 ${v.fare_per_day:.2f}，"
-                f"超過每日上限 ${budget['taxi_max_per_day_usd']}"
+                f"超過每日上限 ${budget['taxi_max_per_day_usd']:g}"
             )
         if is_default:
             note = "這個地區還沒填計程車費率，用的是保守預設值"
@@ -318,6 +341,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
         v.amenities[key] = state
         if state == NO:
             v.passed = False
+            v.reject_category = v.reject_category or "amenity"
             v.rejected_for.append(f"明確標示沒有{label(key)}")
         elif state == UNKNOWN:
             v.to_confirm.append(f"{label(key)}：資料未標示，需要自己確認")
