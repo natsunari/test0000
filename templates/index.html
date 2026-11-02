@@ -186,12 +186,9 @@
         <div class="row">
           <div class="field" style="flex:2 1 260px">
             <label for="destination">目的地</label>
-            <input type="text" id="destination" name="destination" list="venues"
+            <input type="text" id="destination" name="destination"
                    value="{{ form.destination }}" autocomplete="off"
                    placeholder="展館名稱、地址，或座標">
-            <datalist id="venues">
-              {% for v in known_venues %}<option value="{{ v }}">{% endfor %}
-            </datalist>
             <div class="hint"><b>請用英文</b>名稱或英文地址（例如 Tokyo Big Sight、Taipei 101）。
               中日文的命中率明顯較差，容易查不到或對到別的地方。<br>
               最準確的做法是貼 Google Maps 的座標或網址（例如 35.6298, 139.7954），那不受語言限制。</div>
@@ -201,9 +198,11 @@
             <input type="text" id="city" name="city" list="cities" value="{{ form.city }}"
                    autocomplete="off" placeholder="留空＝用預設">
             <datalist id="cities">
-              {% for c in known_cities %}<option value="{{ c }}">{% endfor %}
+              {% for c in city_options %}
+                <option value="{{ c.name }}"{% if c.has_fare %} label="已有費率"{% endif %}>
+              {% endfor %}
             </datalist>
-            <div class="hint">查計程車費率，建議填</div>
+            <div class="hint">查計程車費率，建議填。清單裡沒有的直接打也可以。</div>
           </div>
         </div>
         <div class="row">

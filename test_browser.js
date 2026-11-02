@@ -89,6 +89,24 @@ const { chromium } = require('playwright');
   check(await page.inputValue('#s_hotel_max_per_night_usd') === '180', '回到 180');
   check(await state('btnReset'), '還原鈕又變成停用');
 
+  console.log('\n--- 目的地沒有下拉，城市有 ---');
+  check(await page.getAttribute('#destination', 'list') === null,
+        '目的地欄位沒有下拉（直接打字就好）');
+  check(await page.getAttribute('#city', 'list') === 'cities',
+        '城市欄位有下拉');
+  const cityOptions = await page.locator('#cities option').count();
+  check(cityOptions > 50, `城市選單有 ${cityOptions} 個建議（展覽與商務常去的城市）`);
+  check(await page.locator('#cities option[value="Sydney"]').count() === 1,
+        '雪梨在清單裡');
+  check(await page.locator('#cities option[label="已有費率"]').count() >= 4,
+        '已填費率的城市有特別標示');
+
+  console.log('\n--- 清單裡沒有的城市也要能自己打 ---');
+  await page.fill('#city', 'Reykjavik');
+  check(await page.inputValue('#city') === 'Reykjavik',
+        '可以輸入清單上沒有的城市');
+  await page.fill('#city', '');
+
   console.log('\n--- 退房日期不能早於入住隔天 ---');
   await page.goto('http://127.0.0.1:5000/');
   await page.waitForLoadState('load');

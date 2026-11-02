@@ -36,6 +36,20 @@ MODE_CACHE = "cache"
 MODE_REFRESH = "refresh"
 
 
+def _city_options(config: dict) -> list[dict]:
+    """城市下拉選單的內容，有費率的排前面並標示出來。"""
+    with_fare = [c for c in config.get("taxi_fare", {}) if c != "default"]
+    suggested = config.get("ui", {}).get("suggested_cities", [])
+    seen = set()
+    options = []
+    for name in with_fare + suggested:
+        if name in seen:
+            continue
+        seen.add(name)
+        options.append({"name": name, "has_fare": name in with_fare})
+    return options
+
+
 def settings_fields(config: dict, submitted=None) -> list[dict]:
     """
     整理成畫面好填的格式：目前生效的值 + 標籤 + 說明。
@@ -168,8 +182,9 @@ def home():
             "config": config,
             "labels": config.get("labels", {}),
             "short": config.get("short_labels", {}),
-            "known_venues": sorted(geocode.load_venues().keys()),
-            "known_cities": [c for c in config["taxi_fare"] if c != "default"],
+            # 下拉建議：先列已有費率的（標示出來），再列其他常見展覽城市。
+            # 清單只是方便選取，使用者照樣可以自己打。
+            "city_options": _city_options(config),
             "settings_fields": settings_fields(base_config,
                                                extra.pop("submitted", None)),
             "using_custom": bool(settings.load()),

@@ -305,3 +305,43 @@ ca = "CAD"      # 加拿大
 mx = "MXN"      # 墨西哥
 br = "BRL"      # 巴西
 ae = "AED"      # 阿聯
+
+
+# ============================================================
+#  城市欄位的下拉建議
+#
+#  以國際展覽與商務出差常見的城市為主。
+#  這只是方便選取，不影響任何篩選 ——
+#  清單裡沒有的城市照樣可以直接打進去。
+#
+#  ⚠️ 在這裡出現不代表有計程車費率。
+#     沒填費率的城市會往上找國家，再找不到就用保守預設值，
+#     畫面上會標示出來。要加費率請看 [taxi_fare] 那一區。
+# ============================================================
+[ui]
+suggested_cities = [
+  # 日本
+  "Tokyo", "Urayasu", "Yokohama", "Osaka", "Nagoya", "Kyoto", "Fukuoka",
+  # 東亞
+  "Seoul", "Busan", "Shanghai", "Beijing", "Guangzhou", "Shenzhen",
+  "Hong Kong", "Taipei", "Kaohsiung",
+  # 東南亞與南亞
+  "Singapore", "Bangkok", "Kuala Lumpur", "Jakarta", "Manila",
+  "Ho Chi Minh City", "Hanoi", "New Delhi", "Mumbai", "Bengaluru",
+  # 中東
+  "Dubai", "Abu Dhabi", "Tel Aviv", "Istanbul",
+  # 大洋洲
+  "Sydney", "Melbourne", "Brisbane", "Perth", "Auckland",
+  # 德國（展覽重鎮）
+  "Berlin", "Munich", "Frankfurt", "Dusseldorf", "Hannover", "Cologne",
+  "Hamburg", "Stuttgart", "Nuremberg",
+  # 其他歐洲
+  "London", "Paris", "Amsterdam", "Barcelona", "Madrid", "Milan", "Rome",
+  "Bologna", "Zurich", "Geneva", "Vienna", "Brussels", "Copenhagen",
+  "Stockholm", "Helsinki", "Oslo", "Dublin", "Lisbon", "Prague", "Warsaw",
+  # 北美
+  "New York", "Las Vegas", "Los Angeles", "San Francisco", "Chicago",
+  "Orlando", "Atlanta", "Boston", "Seattle", "Toronto", "Vancouver",
+  # 中南美
+  "Mexico City", "Sao Paulo",
+]
