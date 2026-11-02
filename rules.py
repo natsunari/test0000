@@ -23,10 +23,16 @@ from pathlib import Path
 
 CONFIG_PATH = Path(__file__).parent / "config.toml"
 
-# 設施的三種狀態
-YES = "有"
-NO = "沒有"
-UNKNOWN = "不知道"
+# 設施的狀態
+YES = "有"              # 資料明確標示有
+NO = "沒有"             # 資料明確標示沒有
+UNKNOWN = "不知道"       # 資料沒提到，需要自己確認
+ASSUMED = "推定有"       # 資料沒提到，但依 config 的設定推定為有
+#
+# ASSUMED 存在的理由：Google 的設施資料極度稀疏（20 間只有 2 間標冷氣），
+# 但那些飯店實際上都有。把「沒寫」一律當成「要確認」會讓畫面充滿雜訊。
+# 不過推定終究不是查證 —— 所以它是獨立的狀態，畫面上顯示「推定有」，
+# 絕不混充成「有」。
 
 
 def load_config(path: Path | None = None) -> dict:
@@ -240,10 +246,14 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     lack = hotel.get("excluded_amenities")
     match_table = config["amenity_match"]
 
+    assume = config.get("assume_when_unknown", {})
     for key, needed in config["required"].items():
         if not needed or key not in match_table:
             continue
         state = check_amenity(have, lack, match_table[key])
+        # 沒標示但設定為「推定有」時，不列入待確認，但狀態誠實標示為推定
+        if state == UNKNOWN and assume.get(key):
+            state = ASSUMED
         v.amenities[key] = state
         if state == NO:
             v.passed = False

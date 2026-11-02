@@ -56,6 +56,18 @@ air_conditioning = true
 elevator = true
 
 
+[assume_when_unknown]
+# 資料未標示時，是否「推定為有」而不列入待確認。
+#
+# 為什麼需要這個：實測 20 間東京飯店，只有 2 間標了冷氣。
+# 但那些飯店實際上都有冷氣 —— 沒寫只是 Google 沒收錄這筆資料。
+# 每張卡片都掛著「冷氣：不知道」既吵又沒意義。
+#
+# ⚠️ 推定不是確認。畫面上會顯示「推定有」而不是「有」，不會假裝是查證過的。
+air_conditioning = true    # 飯店幾乎都有冷氣，推定為有是合理的
+elevator = false           # 小型飯店確實可能沒有，保持待確認比較安全
+
+
 [preferred]
 # 加分條件。不符合也不淘汰，只影響排序。
 breakfast = true

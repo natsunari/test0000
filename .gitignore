@@ -24,3 +24,6 @@ venues.json
 
 # 匯率快取（可刪，刪了下次重查）
 fx_cache.json
+
+# 你在網頁上調整過的限制值（每個人不同，不需版控）
+settings.json

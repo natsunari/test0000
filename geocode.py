@@ -45,6 +45,65 @@ _COORD_RE = re.compile(
 )
 
 
+# Google Maps 連結裡的座標有好幾種寫法，這些是常見的：
+#   .../@25.0339,121.5645,17z/...        地圖中心
+#   ...!3d25.0339!4d121.5645...          地點本身（比地圖中心準）
+#   ...?q=25.0339,121.5645               查詢參數
+_MAPS_PATTERNS = [
+    re.compile(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)"),
+    re.compile(r"[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)"),
+    re.compile(r"@(-?\d+\.\d+),(-?\d+\.\d+)"),
+]
+
+# 樓層、室號 —— OSM 不會有這層資訊，查詢時是純粹的干擾
+_FLOOR_RE = re.compile(r"\s*\d+\s*(?:樓之\d+|樓|F|f|樓層|室|房)\s*$")
+# 村里鄰 —— 台灣地址的行政區劃，OSM 幾乎沒有收錄。
+# 只拿掉「緊接在區/鄉/鎮/市後面」的里名，而且後面不能再接區/鄉/鎮，
+# 否則「新北市萬里區」的「萬里」會被誤刪。
+_VILLAGE_RE = re.compile(
+    r"(?<=[區鄉鎮市])[\u4e00-\u9fff]{1,3}[里鄰](?![區鄉鎮市])"
+)
+
+
+def coordinates_from_maps_url(text: str) -> tuple[float, float] | None:
+    """從 Google Maps 連結裡抓座標。抓不到回傳 None。"""
+    if "google." not in text and "goo.gl" not in text:
+        return None
+    for pattern in _MAPS_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            lat, lon = float(m.group(1)), float(m.group(2))
+            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                return lat, lon
+    return None
+
+
+def query_variants(text: str) -> list[str]:
+    """
+    產生由精確到寬鬆的查詢候選，最多 3 個。
+
+    中文地址對 Nominatim 有三個難點，這裡逐一拆掉：
+      1. 樓層（89樓）—— OSM 沒有這層資訊
+      2. 村里（西村里）—— 行政區劃，OSM 幾乎沒收錄
+      3. 臺 / 台 用字不一致
+
+    最多只試 3 次，而且每次間隔 1 秒以上。這是使用者按一次按鈕的動作，
+    不是 Nominatim 政策所禁止的批次查詢。
+    """
+    variants = [text]
+
+    simplified = _FLOOR_RE.sub("", text).strip()
+    simplified = simplified.replace("臺", "台")
+    if simplified and simplified not in variants:
+        variants.append(simplified)
+
+    without_village = _VILLAGE_RE.sub("", simplified).strip()
+    if without_village and without_village not in variants:
+        variants.append(without_village)
+
+    return variants[:3]
+
+
 @dataclass
 class Place:
     latitude: float
@@ -119,6 +178,13 @@ def resolve(text: str, *, allow_network: bool = True,
         return Place(coords[0], coords[1],
                      f"座標 {coords[0]}, {coords[1]}", "座標輸入")
 
+    # 1b. Google Maps 連結
+    coords = coordinates_from_maps_url(text)
+    if coords:
+        return Place(coords[0], coords[1],
+                     f"座標 {coords[0]}, {coords[1]}（取自 Google Maps 連結）",
+                     "Maps 連結")
+
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
     saved = load_venues(venues_path).get(text.lower())
     if saved:
@@ -139,8 +205,22 @@ def resolve(text: str, *, allow_network: bool = True,
     if not allow_network:
         raise LookupError(f"「{text}」不在已存地點裡，而目前是離線模式")
 
-    # 3. 問 Nominatim
-    return _query_nominatim(text)
+    # 3. 問 Nominatim。中文地址常常要簡化過才查得到，所以依序試幾個版本。
+    attempts = query_variants(text)
+    last_error: LookupError | None = None
+    for candidate in attempts:
+        try:
+            return _query_nominatim(candidate)
+        except LookupError as exc:
+            last_error = exc
+    raise LookupError(
+        f"找不到「{text}」，也試過簡化版本（{'、'.join(attempts[1:]) or '無'}）。\n\n"
+        f"中文地址常常查不到，最可靠的做法是直接給座標：\n"
+        f"　1. 在 Google Maps 上找到那個地點\n"
+        f"　2. 對著它按右鍵，選單最上面那行就是座標\n"
+        f"　3. 點一下複製，貼進這個欄位\n"
+        f"（也可以直接貼 Google Maps 的網址）"
+    ) from last_error
 
 
 def _query_nominatim(text: str) -> Place:

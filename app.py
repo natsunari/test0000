@@ -16,6 +16,7 @@ import fx
 import geocode
 import rules
 import search
+import settings
 
 app = Flask(__name__)
 
@@ -29,6 +30,18 @@ DEMO_CITY = "Tokyo"
 MODE_DEMO = "demo"
 MODE_CACHE = "cache"
 MODE_REFRESH = "refresh"
+
+
+def settings_fields(config: dict) -> list[dict]:
+    """整理成畫面好填的格式：目前生效的值 + 標籤 + 說明。"""
+    live = settings.current(config)
+    fields = []
+    for name, (_sec, _key, kind, label, unit, desc) in settings.EDITABLE.items():
+        fields.append({
+            "name": name, "label": label, "unit": unit, "desc": desc,
+            "is_bool": kind is bool, "value": live[name],
+        })
+    return fields
 
 
 def empty_form() -> dict:
@@ -57,10 +70,38 @@ def validate(form: dict) -> str | None:
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    config = rules.load_config()
+    base_config = rules.load_config()
+    action = request.form.get("action", "search")
+
+    # 儲存／還原限制設定
+    saved_note = None
+    if request.method == "POST" and action == "reset_settings":
+        settings.reset()
+        saved_note = "已還原成 config.toml 的預設值。"
+        action = "show"
+    elif request.method == "POST" and action == "save_settings":
+        values, problem = settings.parse_form(request.form)
+        if problem:
+            config = settings.apply(base_config)
+            return render_template(
+                "index.html", form=empty_form(), settings_error=problem,
+                config=config, labels=config.get("labels", {}),
+                known_venues=sorted(geocode.load_venues().keys()),
+                known_cities=[c for c in config["taxi_fare"] if c != "default"],
+                settings_fields=settings_fields(base_config),
+                MODE_DEMO=MODE_DEMO, MODE_CACHE=MODE_CACHE, MODE_REFRESH=MODE_REFRESH,
+            )
+        settings.save(values)
+        saved_note = "限制已更新。下次搜尋就會套用新的值。"
+        action = "show"
+
+    config = settings.apply(base_config)
 
     context = {
         "config": config,
+        "settings_fields": settings_fields(base_config),
+        "saved_note": saved_note,
+        "using_custom": bool(settings.load()),
         "labels": config.get("labels", {}),
         "known_venues": sorted(geocode.load_venues().keys()),
         "known_cities": [c for c in config["taxi_fare"] if c != "default"],
@@ -69,8 +110,8 @@ def home():
         "MODE_REFRESH": MODE_REFRESH,
     }
 
-    # 直接打開頁面（GET）時一律給空白表單
-    if request.method != "POST":
+    # 直接打開頁面（GET）、或剛存完設定時，一律給空白表單
+    if request.method != "POST" or action == "show":
         return render_template("index.html", form=empty_form(), **context)
 
     form = {

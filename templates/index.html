@@ -58,6 +58,34 @@
       box-shadow:var(--shadow)}
     .meta b{color:var(--fg)}
 
+    /* ---------- 版面：搜尋在左、限制設定在右 ---------- */
+    .top{display:flex;gap:18px;align-items:flex-start;margin-bottom:22px}
+    .top .search{flex:1 1 560px;min-width:0;margin-bottom:0}
+    .settings{flex:0 0 300px}
+    @media (max-width:860px){ .top{flex-direction:column} .settings{flex:1 1 auto;width:100%} }
+    .settings form{padding:16px 17px;margin-bottom:0}
+    .settings h3{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:7px}
+    .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;
+      background:var(--accent-soft);color:var(--accent);border:1px solid #cfe0ff}
+    .badge.plain{background:#f3f4f6;color:var(--muted);border-color:var(--line)}
+    .sidenote{font-size:12px;color:var(--muted);margin:0 0 13px;line-height:1.5}
+    .sfield{margin-bottom:11px}
+    .sfield label{font-size:12.5px;margin-bottom:3px;font-weight:600}
+    .sfield label i{font-style:normal;color:var(--muted);font-weight:400}
+    .sfield input{padding:7px 10px;font-size:14px}
+    .sfield em,.switch em{display:block;font-style:normal;font-size:11.5px;
+      color:var(--muted);margin-top:3px;line-height:1.45}
+    .switch{display:flex;gap:8px;align-items:flex-start;margin:0 0 11px;
+      font-weight:400;cursor:pointer}
+    .switch input{margin-top:3px;flex:0 0 auto}
+    .switch b{font-size:12.5px;font-weight:600;display:block}
+    .sbtns{display:flex;gap:8px;margin-top:14px}
+    button.small{padding:8px 14px;font-size:13.5px;border-radius:8px}
+    button.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}
+    button.ghost:hover{background:#f3f4f6;color:var(--fg)}
+    .saved{background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);
+      padding:10px 14px;border-radius:9px;margin-bottom:16px;font-size:14px}
+
     /* ---------- 結果 ---------- */
     h2{font-size:17px;margin:30px 0 4px;display:flex;align-items:center;gap:8px}
     h2 .count{font-size:13px;font-weight:600;padding:1px 9px;border-radius:99px}
@@ -89,6 +117,7 @@
     .chip.walk{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
     .chip.total{color:var(--fg);font-weight:600;border-color:#cfd6df}
     .chip.y{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
+    .chip.a{color:#4d7c0f;border-color:#d7e8b8;background:#f7fbef}
     .chip.n{color:var(--bad);border-color:var(--bad-line);background:var(--bad-bg)}
     .reasons{margin:0;padding-left:17px;font-size:12.5px;color:var(--muted)}
     .reasons li{margin:2px 0}
@@ -109,8 +138,12 @@
   <p class="sub">依公司規範與個人需求自動篩選。限制寫在 <code>config.toml</code>，搜尋時不會問你。</p>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if settings_error %}<div class="error">{{ settings_error }}</div>{% endif %}
+  {% if saved_note %}<div class="saved">✔ {{ saved_note }}</div>{% endif %}
 
-  <form method="post" autocomplete="off">
+  <div class="top">
+  <form method="post" autocomplete="off" class="search">
+    <input type="hidden" name="action" value="search">
     <div class="row">
       <div class="field" style="flex:2 1 340px">
         <label for="destination">目的地</label>
@@ -166,6 +199,41 @@
     <button type="submit">搜尋</button>
   </form>
 
+  <aside class="settings">
+    <form method="post" autocomplete="off">
+      <input type="hidden" name="action" value="save_settings">
+      <h3>限制條件
+        {% if using_custom %}<span class="badge">已自訂</span>
+        {% else %}<span class="badge plain">預設值</span>{% endif %}
+      </h3>
+      <p class="sidenote">公司規範或物價有變動時改這裡。改完按儲存，之後每次搜尋都會套用。</p>
+
+      {% for f in settings_fields %}
+        {% if f.is_bool %}
+          <label class="switch">
+            <input type="checkbox" name="{{ f.name }}" {% if f.value %}checked{% endif %}>
+            <span><b>{{ f.label }}</b><em>{{ f.desc }}</em></span>
+          </label>
+        {% else %}
+          <div class="sfield">
+            <label for="s_{{ f.name }}">{{ f.label }}
+              {% if f.unit %}<i>（{{ f.unit }}）</i>{% endif %}</label>
+            <input type="text" inputmode="decimal" id="s_{{ f.name }}"
+                   name="{{ f.name }}" value="{{ f.value }}">
+            <em>{{ f.desc }}</em>
+          </div>
+        {% endif %}
+      {% endfor %}
+
+      <div class="sbtns">
+        <button type="submit" class="small">儲存限制</button>
+        <button type="submit" name="action" value="reset_settings"
+                class="small ghost">還原預設</button>
+      </div>
+    </form>
+  </aside>
+  </div>
+
   <script>
     // 切換到示範模式時立刻提示，不用等送出才發現輸入被忽略
     const note = document.getElementById('demoNote');
@@ -193,6 +261,12 @@
     <div class="meta">
       目的地：<b>{{ place.label }}</b>（{{ place.source }}）<br>
       資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}；共 {{ total }} 筆住宿<br>
+      套用的限制：房價 ≤ <b>${{ config.budget.hotel_max_per_night_usd }}</b>／晚，
+        交通單趟 ≤ <b>${{ config.budget.taxi_max_one_way_usd }}</b>、
+        每日 ≤ <b>${{ config.budget.taxi_max_per_day_usd }}</b>，
+        走路門檻 <b>{{ config.distance.walking_max_km }}</b> km，
+        緩衝 <b>{{ config.exchange_rate.buffer_percent }}%</b>
+        {% if using_custom %}<b>（已自訂）</b>{% endif %}<br>
       計程車費率：<b>{{ city_used or '未指定' }}</b>
         起跳 ${{ fare_used.base_usd }}／每公里 ${{ fare_used.per_km_usd }}
         {% if fare_is_default %}<b>（保守預設值，建議到 config.toml 填入實際費率）</b>{% endif %}
@@ -231,7 +305,8 @@
           </div>
           <div class="chips">
             {% for key, state in v.amenities.items() %}
-              <span class="chip {{ 'y' if state == '有' else ('n' if state == '沒有' else '') }}">{{ labels.get(key, key) }}：{{ state }}</span>
+              <span class="chip {{ 'y' if state == '有' else ('n' if state == '沒有' else ('a' if state == '推定有' else '')) }}"
+                    {% if state == '推定有' %}title="Google 沒有這筆資料，依設定推定為有，不是查證過的"{% endif %}>{{ labels.get(key, key) }}：{{ state }}</span>
             {% endfor %}
             {% for key, state in v.bonuses.items() %}
               <span class="chip {{ 'y' if state == '有' else '' }}">{{ labels.get(key, key) }}：{{ state }}</span>
