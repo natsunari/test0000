@@ -115,6 +115,31 @@ def get_rate(target: str, base: str = "USD", *,
     return None
 
 
+def fare_to_usd(fare: dict) -> tuple[dict, str | None]:
+    """
+    把用當地幣別寫的費率換算成美金。
+
+    回傳 (美金費率, 問題說明)。換不成時回傳原值與說明，
+    由呼叫端決定要不要改用保守預設值 —— 絕不默默把 85 元當成 85 美金用。
+    """
+    currency = (fare.get("currency") or "USD").upper()
+    usd = {
+        "base": float(fare["base"]),
+        "per_km": float(fare["per_km"]),
+        "included_km": float(fare.get("included_km", 0)),
+        "currency": "USD",
+    }
+    if currency == "USD":
+        return usd, None
+
+    rate = get_rate(currency)      # 1 美金 = 多少當地幣
+    if not rate or not rate.value:
+        return fare, f"取不到 {currency} 匯率，無法把費率換算成美金"
+    usd["base"] = round(usd["base"] / rate.value, 4)
+    usd["per_km"] = round(usd["per_km"] / rate.value, 4)
+    return usd, None
+
+
 def currency_for_country(country_code: str | None, table: dict) -> str | None:
     """用國碼（Nominatim 回傳的 'jp'、'sg' 等）查當地貨幣。"""
     if not country_code:

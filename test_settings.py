@@ -13,6 +13,8 @@ from pathlib import Path
 import rules
 import settings
 
+TOKYO_FARE = None      # 下面載入 config 之後填
+
 passed = 0
 
 
@@ -38,6 +40,13 @@ def good_form(**overrides):
 
 
 config = rules.load_config()
+TOKYO_FARE, TOKYO_SOURCE = rules.resolve_fare(config, "Tokyo", "jp")
+
+
+def ev(h, cfg=None):
+    cfg = cfg or config
+    fare, source = rules.resolve_fare(cfg, "Tokyo", "jp")
+    return rules.evaluate(h, dest, cfg, fare, source)
 
 print("\n--- 表單解析：合法的值 ---")
 values, problem = settings.parse_form(good_form())
@@ -110,10 +119,10 @@ hotel = {"name": "測試", "type": "hotel",
          "rate_per_night": {"extracted_display_price": 150},
          "gps_coordinates": {"latitude": 35.6326, "longitude": 139.7934}}
 dest = (35.6298, 139.7954)
-check(rules.evaluate(hotel, dest, config, "Tokyo").passed,
+check(ev(hotel, config).passed,
       "每晚 $150 在預設上限 $180 之下 → 通過")
 tight = settings.apply(config, {"hotel_max_per_night_usd": 100.0})
-check(not rules.evaluate(hotel, dest, tight, "Tokyo").passed,
+check(not ev(hotel, tight).passed,
       "上限改成 $100 之後，同一間就被淘汰")
 
 print("\n--- 「推定有」的設定 ---")
@@ -121,7 +130,7 @@ bare = {"name": "測試", "type": "hotel",
         "rate_per_night": {"extracted_display_price": 100},
         "gps_coordinates": {"latitude": 35.6326, "longitude": 139.7934},
         "amenities": ["Free Wi-Fi"]}
-v = rules.evaluate(bare, dest, config, "Tokyo")
+v = ev(bare, config)
 check(v.amenities["air_conditioning"] == rules.ASSUMED,
       "沒標冷氣時推定為有（預設開啟）")
 check(not any("冷氣" in x for x in v.to_confirm), "推定有的項目不列入待確認")
@@ -130,7 +139,7 @@ check(v.amenities["elevator"] == rules.ASSUMED,
 check(not v.to_confirm, "兩項都推定時，待確認清單是空的")
 
 off = settings.apply(config, {"assume_air_conditioning": False})
-v = rules.evaluate(bare, dest, off, "Tokyo")
+v = ev(bare, off)
 check(v.amenities["air_conditioning"] == rules.UNKNOWN,
       "關掉推定之後，冷氣回到「不知道」")
 check(any("冷氣" in x for x in v.to_confirm), "並重新列入待確認")

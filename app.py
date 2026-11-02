@@ -202,10 +202,21 @@ def home():
     except (search.MissingKey, search.SearchFailed) as exc:
         return page(form=form, error=str(exc), config=config)
 
-    # ---- 3. 套用規則 ----
+    # ---- 3. 決定費率：城市 → 國家 → 預設，並換算成美金 ----
     city = DEMO_CITY if is_demo else (form["city"].strip() or None)
+    raw_fare, fare_source = rules.resolve_fare(config, city, place.country_code)
+    fare_used, fare_problem = fx.fare_to_usd(raw_fare)
+    if fare_problem:
+        # 換不成美金就退回保守預設值。
+        # 絕不能把 85 元當成 85 美金 —— 那會高估到荒謬，整頁都變成超標。
+        raw_fare = config["taxi_fare"]["default"]
+        fare_used, _ = fx.fare_to_usd(raw_fare)
+        fare_source = "default"
+
+    # ---- 4. 套用規則 ----
     all_verdicts = [
-        rules.evaluate(h, (place.latitude, place.longitude), config, city)
+        rules.evaluate(h, (place.latitude, place.longitude), config,
+                       fare_used, fare_source)
         for h in data.get("properties", [])
     ]
     # 不是飯店的整筆不顯示 —— 連「已排除」都不用出現，那不是你的選項
@@ -233,7 +244,7 @@ def home():
             f"請換個寫法，或直接輸入展館名稱。"
         )
 
-    # ---- 4. 當地貨幣 ----
+    # ---- 5. 當地貨幣 ----
     local_currency = fx.currency_for_country(
         place.country_code, config.get("currency_by_country", {}))
     rate = fx.get_rate(local_currency) if local_currency else None
@@ -251,7 +262,6 @@ def home():
     if not is_demo and place.source == "OpenStreetMap":
         geocode.save_venue(form["destination"], place)
 
-    fare_used, fare_is_default = rules.get_fare(config, city)
     return page(
         form=form, config=config, place=place, source=source, searched=True,
         fetched_at=data.get("_fetched_at"), total=len(all_verdicts),
@@ -260,7 +270,8 @@ def home():
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],
         rejected=[v for v in verdicts if not v.passed],
-        fare_used=fare_used, fare_is_default=fare_is_default, city_used=city,
+        fare_used=fare_used, fare_raw=raw_fare, fare_source=fare_source,
+        fare_problem=fare_problem, city_used=city,
         rate=rate, currency_note=currency_note,
         ignored=({"destination": form["destination"].strip() or None,
                   "dates": f'{form["check_in"]} ~ {form["check_out"]}'}

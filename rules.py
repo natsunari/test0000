@@ -57,19 +57,32 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def estimate_fare(distance_km: float, fare: dict) -> float:
-    """起跳價 + 每公里 × 距離。負距離視為 0，避免算出負車資。"""
-    return fare["base_usd"] + fare["per_km_usd"] * max(distance_km, 0.0)
+    """
+    起跳價 + 超出內含里程的部分 × 每公里單價。
+
+    內含里程很重要：台北起跳 85 元「已經含 1.25 公里」，
+    忽略它的話短程會被高估 —— 走 1 公里卻按 1 公里再加一次錢。
+    """
+    extra = max(distance_km - fare.get("included_km", 0), 0.0)
+    return fare["base"] + fare["per_km"] * extra
 
 
-def get_fare(config: dict, city: str | None) -> tuple[dict, bool]:
+def resolve_fare(config: dict, city: str | None,
+                 country_code: str | None) -> tuple[dict, str]:
     """
-    找該城市的計程車費率，找不到就用預設值。
-    回傳 (費率, 是否為預設值)。第二個值用來在畫面上提醒費率只是估計。
+    找出該用哪組費率。順序：城市 → 國家 → 預設。
+
+    回傳 (費率, 來源)，來源是 "city" / "country" / "default"。
+    來源要讓畫面知道，因為用到 default 時那只是保守估計，必須提醒使用者。
     """
-    table = config["taxi_fare"]
-    if city and city in table:
-        return table[city], False
-    return table["default"], True
+    cities = config.get("taxi_fare", {})
+    if city and city in cities:
+        return cities[city], "city"
+    countries = config.get("taxi_fare_by_country", {})
+    code = (country_code or "").lower()
+    if code and code in countries:
+        return countries[code], "country"
+    return cities["default"], "default"
 
 
 # ------------------------------------------------------------ 設施三態判定
@@ -149,13 +162,16 @@ class Verdict:
 
 
 def evaluate(hotel: dict, destination: tuple[float, float],
-             config: dict, city: str | None = None) -> Verdict:
+             config: dict, fare: dict,
+             fare_source: str = "default") -> Verdict:
     """
     把一筆 SerpApi 回傳的飯店資料，對照 config.toml 的規則做判定。
 
     hotel       -- SerpApi properties 陣列裡的一筆
     destination -- (緯度, 經度)，通常是展館
-    city        -- 用來查計程車費率，可省略
+    fare        -- 已經換算成美金的費率（base / per_km / included_km）
+                   換匯要連網，所以在外面做，這支程式保持不連網
+    fare_source -- "city" / "country" / "default"，用來提醒費率的可靠度
     """
     budget = config["budget"]
     labels = config.get("labels", {})
@@ -219,7 +235,7 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     else:
         straight = haversine_km(lat, lon, destination[0], destination[1])
         road = straight * config["distance"]["road_detour_factor"]
-        fare, is_default = get_fare(config, city)
+        is_default = fare_source == "default"
         one_way = estimate_fare(road, fare)
 
         v.distance_km = round(road, 2)
@@ -242,8 +258,9 @@ def evaluate(hotel: dict, destination: tuple[float, float],
                 f"超過每日上限 ${budget['taxi_max_per_day_usd']}"
             )
         if is_default:
-            v.to_confirm.append("這個城市還沒填計程車費率，用的是保守預設值")
-            v.notes.append("這個城市還沒填計程車費率，用的是保守預設值")
+            note = "這個地區還沒填計程車費率，用的是保守預設值"
+            v.to_confirm.append(note)
+            v.notes.append(note)
 
     # --- 3b. 每日總花費：房價 + 當日交通費（走得到的話交通費算 0）---
     if v.price_usd is not None:

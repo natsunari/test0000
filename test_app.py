@@ -72,6 +72,46 @@ check("過了" in (app.validate(form(check_in=past, check_out=future)) or ""),
 check("格式" in (app.validate(form(check_in="not-a-date")) or ""),
       "亂填日期格式會被擋下，而不是讓程式當掉")
 
+print("\n--- 費率換匯：當地幣別要換成美金 ---")
+import fx
+import rules
+
+config = rules.load_config()
+
+usd_fare = {"currency": "USD", "base": 3.2, "included_km": 0, "per_km": 2.8}
+got, problem = fx.fare_to_usd(usd_fare)
+check(problem is None and got["base"] == 3.2, "本來就是美金就原封不動")
+
+# 用假的匯率測台北：1 USD = 31 TWD
+class FakeRate:
+    value = 31.0
+
+original = fx.get_rate
+fx.get_rate = lambda *a, **k: FakeRate()
+try:
+    taipei = config["taxi_fare_by_country"]["tw"]
+    got, problem = fx.fare_to_usd(taipei)
+    check(problem is None, "換匯成功")
+    check(abs(got["base"] - 85 / 31) < 0.001,
+          f"起跳 NT$85 換成 US${got['base']:.2f}")
+    check(abs(got["per_km"] - 25 / 31) < 0.001,
+          f"每公里 NT$25 換成 US${got['per_km']:.2f}")
+    check(got["included_km"] == 1.25, "內含里程不受換匯影響")
+    check(got["currency"] == "USD", "換完標記為美金")
+finally:
+    fx.get_rate = original
+
+# 取不到匯率時必須回報問題，不可以把 85 元當成 85 美金
+fx.get_rate = lambda *a, **k: None
+try:
+    got, problem = fx.fare_to_usd(config["taxi_fare_by_country"]["tw"])
+    check(problem is not None and "匯率" in problem,
+          "取不到匯率時明確回報問題")
+    check(got["base"] == 85,
+          "回傳的仍是原始值，由呼叫端決定怎麼辦（絕不默默當成美金）")
+finally:
+    fx.get_rate = original
+
 print(f"\n{'=' * 56}")
 print(f"OK —— {passed} 項檢查全部通過")
 print("=" * 56)
