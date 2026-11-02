@@ -149,24 +149,47 @@ for name in ["Sydney Harbour YHA", "Wake Up! Bondi Beach Hostel",
     check(v.looks_like_dorm and not v.passed, f"擋下「{name}」")
 
 print("\n--- 簡介裡寫明白的，比看名字可靠 ---")
-# 雪梨實測發現 amenities 完全沒有共用衛浴的訊號，
-# 但部分飯店有 description 欄位，裡面可能直接寫出來。
-# ⚠️ 下面用的是示意文字，真實資料的用字還沒驗證過。
-for desc, label in [
-    ("Budget rooms with shared bathroom facilities on each floor.", "共用衛浴"),
-    ("Lively spot offering mixed dorm rooms and private rooms.", "dorm room"),
-    ("Simple hostel with a shared kitchen.", "hostel"),
-    ("Rooms feature bunk beds and lockers.", "bunk bed"),
-]:
-    v = ev(hotel(name="Perfectly Normal Name", description=desc))
-    check(v.looks_like_dorm and not v.passed,
-          f"簡介提到「{label}」就擋下，即使名字完全看不出來")
-    check(any("簡介" in x for x in v.rejected_for), "淘汰原因說明是簡介寫的")
+# 以下全部是 2026-11-02 一次真實的雪梨查詢回傳的資料，不是編出來的。
+# 雪梨那批 amenities 完全沒有共用衛浴的訊號，但 description 有。
 
+real_sydney = [
+    ("Sydney Central Inn",
+     "Simple hostel with low-key dorms & private rooms, plus free Wi-Fi, "
+     "a kitchen & a TV lounge.", True,
+     "名稱完全看不出來，但簡介自己寫了 hostel 與 dorms"),
+    ("The Lansdowne Hotel",
+     "Long-running pub with American diner eats upstairs and weekly trivia "
+     "and live rock bands downstairs.", False,
+     "酒吧樓上的房間，簡介沒提共用衛浴 —— 這種只能靠價格擋"),
+    ("Sydney Airport Suites",
+     "Relaxed apartment hotel offering simply furnished units, as well as "
+     "complimentary Wi-Fi.", False,
+     "公寓式飯店，不是通舖 —— 它的問題是價格異常（US$11）"),
+]
+for name, desc, should_block, why in real_sydney:
+    v = ev(hotel(name=name, description=desc))
+    check(v.looks_like_dorm == should_block,
+          f"{'擋下' if should_block else '放行'}「{name}」—— {why}")
+
+check(any("dorms" in x for x in ev(hotel(
+    name="Sydney Central Inn",
+    description="Simple hostel with low-key dorms & private rooms.")).rejected_for),
+    "淘汰原因指出是簡介裡的哪個字")
+
+# 真實用字是複數的 dorms，不是 dormitory —— 這是看了資料才知道的
+check(ev(hotel(name="X", description="low-key dorms & private rooms")).looks_like_dorm,
+      "「dorms」（複數）要命中")
+check(ev(hotel(name="X", description="hostels and guesthouses nearby")).looks_like_dorm,
+      "「hostels」（複數）要命中")
+
+print("\n--- 但簡介比對不可以誤殺 ---")
+check(not ev(hotel(name="Dormy Inn Premium Sapporo",
+                   description="Dormy Inn Premium offers hot spring baths "
+                               "and private rooms.")).looks_like_dorm,
+      "Dormy Inn 的簡介裡有自己的名字，仍然不可以被 dorms 誤殺")
 check(not ev(hotel(name="Sofitel Sydney",
                    description="Upscale hotel with an indoor pool and a spa.")
-             ).looks_like_dorm,
-      "正常飯店的簡介不會誤判")
+             ).looks_like_dorm, "正常飯店的簡介不會誤判")
 check(not ev(hotel(name="Sofitel Sydney")).looks_like_dorm,
       "沒有 description 欄位時不會當掉，也不會誤判")
 

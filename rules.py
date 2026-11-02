@@ -213,7 +213,8 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     if not v.looks_like_dorm:
         description = (hotel.get("description") or "").lower()
         for phrase in accommodation.get("exclude_description_keywords", []):
-            if phrase.strip().lower() in description:
+            # 詞首比對：hostel 命中 hostels，但 dorms 不會命中 Dormy
+            if re.search(r"\b" + re.escape(phrase.strip().lower()), description):
                 v.passed = False
                 v.looks_like_dorm = True
                 v.rejected_for.append(f"簡介提到「{phrase}」，研判是通舖或共用衛浴")

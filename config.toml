@@ -68,15 +68,19 @@ exclude_name_keywords = [
 # 這比看名字可靠 —— 那是資料，不是從名字推測的。
 #
 # 這裡只放「寫出來幾乎就確定不符合」的字。
-# 比對不分大小寫，整句比對（不是詞首），因為這些是片語。
+# 比對不分大小寫，而且是詞首比對（hostel 會命中 hostels）。
 #
-# ⚠️ 實測雪梨那批資料時，setting 這些字是否真的出現在簡介裡還沒驗證。
-#    跑 python show_sample.py --cache 看簡介內容，再依實際用字調整。
+# 已用雪梨實際資料驗證。Google 的寫法例如：
+#   Sydney Central Inn → "Simple hostel with low-key dorms & private rooms…"
+# 注意真實用字是複數的 "dorms"，不是 "dormitory"。
+#
+# ⚠️ 刻意不放單數的 "dorm"：日本的 Dormy Inn 是正常商務飯店，
+#    它的簡介裡會出現自己的名字，用 "dorm" 會誤殺。
 exclude_description_keywords = [
-  "shared bathroom", "shared bathrooms", "shared facilities",
-  "shared kitchen and bathroom",
-  "dormitory", "dorm room", "dorm bed", "mixed dorm", "female dorm",
-  "bunk bed", "bunk beds",
+  "shared bathroom", "shared facilities", "communal bathroom",
+  "dorms", "dormitory", "dormitories", "dorm room", "dorm bed",
+  "mixed dorm", "female dorm",
+  "bunk bed",
   "hostel", "backpacker",
 ]
 
