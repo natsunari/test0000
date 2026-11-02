@@ -139,11 +139,20 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     price = (hotel.get("rate_per_night") or {}).get("extracted_display_price")
     v.has_availability = price is not None
     if price is None:
-        # Google 是帶著入住日期查的，查不到空房的飯店通常不會有價格。
-        # 所以「沒有價格」就當成「這些日期沒空房」。
+        # Google 是帶著入住日期去查的，拿不到可訂價格就代表訂不了。
+        #
+        # 實測發現這有兩種成因，兩種都該排除：
+        #   1. 這些日期沒空房
+        #   2. 根本不是可訂的飯店 —— 實測 20 筆中的 2 筆，
+        #      一筆是產後護理之家，一筆是飯店附設餐廳，
+        #      兩筆的 type 都被 Google 標成 "hotel"
+        # 所以這道過濾同時也補上了 type 欄位不可靠的漏洞。
         if config.get("availability", {}).get("require", True):
             v.passed = False
-            v.rejected_for.append("查詢當下沒有顯示可訂價格，研判這些日期沒有空房")
+            v.rejected_for.append(
+                "查詢當下沒有可訂價格 —— 可能是這些日期沒空房，"
+                "也可能不是真正可訂的飯店"
+            )
         else:
             v.to_confirm.append("這筆沒有價格資料，需要自己點開確認")
     else:
