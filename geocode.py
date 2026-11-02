@@ -49,8 +49,9 @@ _COORD_RE = re.compile(
 class Place:
     latitude: float
     longitude: float
-    label: str          # 顯示給使用者確認用
-    source: str         # "座標輸入" / "已存地點" / "OpenStreetMap"
+    label: str                      # 顯示給使用者確認用
+    source: str                     # "座標輸入" / "已存地點" / "OpenStreetMap"
+    country_code: str | None = None  # 'jp'、'sg'…，用來決定當地貨幣
 
 
 def parse_coordinates(text: str) -> tuple[float, float] | None:
@@ -86,6 +87,7 @@ def save_venue(key: str, place: Place, path: Path | None = None) -> None:
         "latitude": place.latitude,
         "longitude": place.longitude,
         "label": place.label,
+        "country_code": place.country_code,
     }
     p.write_text(json.dumps(venues, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -121,7 +123,7 @@ def resolve(text: str, *, allow_network: bool = True,
     saved = load_venues(venues_path).get(text.lower())
     if saved:
         return Place(saved["latitude"], saved["longitude"],
-                     saved["label"], "已存地點")
+                     saved["label"], "已存地點", saved.get("country_code"))
 
     if not allow_network:
         raise LookupError(f"「{text}」不在已存地點裡，而目前是離線模式")
@@ -131,7 +133,8 @@ def resolve(text: str, *, allow_network: bool = True,
     try:
         res = requests.get(
             NOMINATIM_URL,
-            params={"q": text, "format": "json", "limit": 1},
+            params={"q": text, "format": "json", "limit": 1,
+                    "addressdetails": 1},
             headers={"User-Agent": USER_AGENT},
             timeout=20,
         )
@@ -156,5 +159,6 @@ def resolve(text: str, *, allow_network: bool = True,
         )
 
     top = results[0]
+    country = (top.get("address") or {}).get("country_code")
     return Place(float(top["lat"]), float(top["lon"]),
-                 top.get("display_name", text), "OpenStreetMap")
+                 top.get("display_name", text), "OpenStreetMap", country)

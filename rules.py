@@ -90,6 +90,25 @@ def check_amenity(amenities: list[str] | None,
     return UNKNOWN
 
 
+def first_image(hotel: dict) -> str | None:
+    """
+    從飯店資料裡挑一張縮圖。
+
+    SerpApi 的 images 欄位格式不固定（可能是字串陣列，也可能是物件陣列），
+    所以這裡把幾種可能都試一遍，試不到就回傳 None，畫面會顯示佔位圖。
+    """
+    images = hotel.get("images") or []
+    for item in images:
+        if isinstance(item, str) and item.startswith("http"):
+            return item
+        if isinstance(item, dict):
+            for key in ("thumbnail", "original_image", "image", "url", "link"):
+                value = item.get(key)
+                if isinstance(value, str) and value.startswith("http"):
+                    return value
+    return None
+
+
 # ------------------------------------------------------------ 評估結果
 
 @dataclass
@@ -110,6 +129,12 @@ class Verdict:
     has_availability: bool = False                    # 查詢當下有可訂價格
     amenities: dict = field(default_factory=dict)     # 必要條件的三態結果
     bonuses: dict = field(default_factory=dict)       # 加分條件的三態結果
+    # 以下純粹給畫面顯示用，不參與任何判斷
+    image_url: str | None = None
+    link: str | None = None
+    rating: float | None = None
+    reviews: int | None = None
+    stars: int | None = None
 
 
 def evaluate(hotel: dict, destination: tuple[float, float],
@@ -124,6 +149,11 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     budget = config["budget"]
     labels = config.get("labels", {})
     v = Verdict(name=hotel.get("name") or "(無名稱)", passed=True)
+    v.image_url = first_image(hotel)
+    v.link = hotel.get("link")
+    v.rating = hotel.get("overall_rating")
+    v.reviews = hotel.get("reviews")
+    v.stars = hotel.get("extracted_hotel_class")
 
     def label(key: str) -> str:
         return labels.get(key, key)

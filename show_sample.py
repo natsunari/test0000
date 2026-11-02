@@ -92,6 +92,23 @@ for p_ in properties:
         print(f"    有哪些欄位  = {', '.join(sorted(p_.keys()))}")
         print()
 
+# 照片：SerpApi 的 images 欄位格式沒有文件可查，要看實際長相才知道怎麼取縮圖
+print("\n--- images 欄位的結構 ---")
+with_images = [p_ for p_ in properties if p_.get("images")]
+print(f"  {len(with_images)} / {len(properties)} 筆有 images 欄位")
+if with_images:
+    sample = with_images[0]["images"]
+    print(f"  型別：{type(sample).__name__}，共 {len(sample)} 張")
+    first = sample[0]
+    print(f"  第一張的型別：{type(first).__name__}")
+    if isinstance(first, dict):
+        print("  第一張的欄位：")
+        for k, v in first.items():
+            preview = str(v)
+            print(f"    {k:<18} = {preview[:70]}{'…' if len(preview) > 70 else ''}")
+    else:
+        print(f"  第一張的內容：{str(first)[:100]}")
+
 print("\n--- 有多少筆缺少關鍵欄位 ---")
 for field in ["rate_per_night", "amenities", "gps_coordinates", "nearby_places", "type"]:
     missing = sum(1 for p in properties if not p.get(field))

@@ -152,3 +152,39 @@ means_no = ["No breakfast"]
 air_conditioning = "獨立冷氣或空調"
 elevator = "電梯可達"
 breakfast = "附早餐"
+
+
+# ============================================================
+#  國碼 → 當地貨幣
+#
+#  用來在美金價格旁邊同時標示當地貨幣，例如 US$121 ≈ ¥19,027。
+#  國碼由 OpenStreetMap 在解析目的地時一併回傳（jp、sg、th…）。
+#  查不到的國家就只顯示美金，不會出錯。
+#  要新增就照格式加一行，左邊是兩個字母的小寫國碼。
+# ============================================================
+[currency_by_country]
+jp = "JPY"      # 日本
+tw = "TWD"      # 台灣
+sg = "SGD"      # 新加坡
+th = "THB"      # 泰國
+kr = "KRW"      # 南韓
+cn = "CNY"      # 中國
+hk = "HKD"      # 香港
+my = "MYR"      # 馬來西亞
+vn = "VND"      # 越南
+ph = "PHP"      # 菲律賓
+id = "IDR"      # 印尼
+in = "INR"      # 印度
+au = "AUD"      # 澳洲
+nz = "NZD"      # 紐西蘭
+gb = "GBP"      # 英國
+de = "EUR"      # 德國
+fr = "EUR"      # 法國
+it = "EUR"      # 義大利
+es = "EUR"      # 西班牙
+nl = "EUR"      # 荷蘭
+ch = "CHF"      # 瑞士
+ca = "CAD"      # 加拿大
+mx = "MXN"      # 墨西哥
+br = "BRL"      # 巴西
+ae = "AED"      # 阿聯
