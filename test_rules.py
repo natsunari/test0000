@@ -148,6 +148,28 @@ for name in ["Sydney Harbour YHA", "Wake Up! Bondi Beach Hostel",
     v = ev(hotel(name=name))
     check(v.looks_like_dorm and not v.passed, f"擋下「{name}」")
 
+print("\n--- 簡介裡寫明白的，比看名字可靠 ---")
+# 雪梨實測發現 amenities 完全沒有共用衛浴的訊號，
+# 但部分飯店有 description 欄位，裡面可能直接寫出來。
+# ⚠️ 下面用的是示意文字，真實資料的用字還沒驗證過。
+for desc, label in [
+    ("Budget rooms with shared bathroom facilities on each floor.", "共用衛浴"),
+    ("Lively spot offering mixed dorm rooms and private rooms.", "dorm room"),
+    ("Simple hostel with a shared kitchen.", "hostel"),
+    ("Rooms feature bunk beds and lockers.", "bunk bed"),
+]:
+    v = ev(hotel(name="Perfectly Normal Name", description=desc))
+    check(v.looks_like_dorm and not v.passed,
+          f"簡介提到「{label}」就擋下，即使名字完全看不出來")
+    check(any("簡介" in x for x in v.rejected_for), "淘汰原因說明是簡介寫的")
+
+check(not ev(hotel(name="Sofitel Sydney",
+                   description="Upscale hotel with an indoor pool and a spa.")
+             ).looks_like_dorm,
+      "正常飯店的簡介不會誤判")
+check(not ev(hotel(name="Sofitel Sydney")).looks_like_dorm,
+      "沒有 description 欄位時不會當掉，也不會誤判")
+
 print("\n--- 但不可以誤殺正常飯店 ---")
 for name in ["Dormy Inn Premium Sapporo", "Park Hyatt Sydney",
              "Hotel Dorsett", "Mercure Sydney", "Capsicum Boutique Hotel"]:

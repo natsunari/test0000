@@ -64,6 +64,22 @@ exclude_name_keywords = [
   "share house", "sharehouse",
 ]
 
+# 有些飯店的簡介（description 欄位）會直接寫出來。
+# 這比看名字可靠 —— 那是資料，不是從名字推測的。
+#
+# 這裡只放「寫出來幾乎就確定不符合」的字。
+# 比對不分大小寫，整句比對（不是詞首），因為這些是片語。
+#
+# ⚠️ 實測雪梨那批資料時，setting 這些字是否真的出現在簡介裡還沒驗證。
+#    跑 python show_sample.py --cache 看簡介內容，再依實際用字調整。
+exclude_description_keywords = [
+  "shared bathroom", "shared bathrooms", "shared facilities",
+  "shared kitchen and bathroom",
+  "dormitory", "dorm room", "dorm bed", "mixed dorm", "female dorm",
+  "bunk bed", "bunk beds",
+  "hostel", "backpacker",
+]
+
 
 [availability]
 # 是否只列出「查詢當下有空房」的飯店。

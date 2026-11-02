@@ -144,12 +144,19 @@ for p_ in priced[:6]:
     for key in ("amenities", "excluded_amenities"):
         if p_.get(key):
             print(f"      {key:<24} {', '.join(map(str, p_[key]))}")
+    desc = p_.get("description")
+    if desc:
+        text = " ".join(str(desc).split())
+        print(f"      {'description':<24} {text[:400]}{'…' if len(text) > 400 else ''}")
+    info = p_.get("essential_info")
+    if info:
+        print(f"      {'essential_info':<24} {info}")
     others = [k for k in p_ if k not in {
         "name", "type", "rate_per_night", "total_rate", "hotel_class",
         "extracted_hotel_class", "overall_rating", "reviews", "location_rating",
         "amenities", "excluded_amenities", "images", "gps_coordinates", "link",
         "property_token", "ratings", "reviews_breakdown", "nearby_places",
-        "check_in_time", "check_out_time"}
+        "check_in_time", "check_out_time", "description", "essential_info"}
         and not k.startswith("serpapi")]
     if others:
         print(f"      {'其他欄位':<22} {', '.join(others)}")

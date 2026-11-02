@@ -198,8 +198,9 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     # --- 1b. 名稱看起來就是通舖的，直接排除 ---
     # 有些青年旅館把自己登記成 type="hotel"，上面那道擋不住。
     # 這是看名字猜，不是看資料，所以關鍵字放在 config.toml 讓人隨時調整。
+    accommodation = config["accommodation"]
     lowered = (hotel.get("name") or "").lower()
-    for word in config["accommodation"].get("exclude_name_keywords", []):
+    for word in accommodation.get("exclude_name_keywords", []):
         # 詞首比對：hostel 命中 Hostels / Hostelling，
         # 但名字中間剛好有這串字母的不會中（例如 Dormy Inn 不該被 dorm 誤殺）。
         if re.search(r"\b" + re.escape(word.strip().lower()), lowered):
@@ -207,6 +208,16 @@ def evaluate(hotel: dict, destination: tuple[float, float],
             v.looks_like_dorm = True
             v.rejected_for.append(f"名稱含「{word}」，研判是通舖型住宿")
             break
+
+    # 簡介裡寫明白的比看名字可靠 —— 那是資料，不是從名字推測的
+    if not v.looks_like_dorm:
+        description = (hotel.get("description") or "").lower()
+        for phrase in accommodation.get("exclude_description_keywords", []):
+            if phrase.strip().lower() in description:
+                v.passed = False
+                v.looks_like_dorm = True
+                v.rejected_for.append(f"簡介提到「{phrase}」，研判是通舖或共用衛浴")
+                break
 
     # --- 2. 房價：加上緩衝後仍需在上限內 ---
     price = (hotel.get("rate_per_night") or {}).get("extracted_display_price")
