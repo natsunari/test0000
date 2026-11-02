@@ -32,33 +32,68 @@ const { chromium } = require('playwright');
 
   console.log('\n--- 剛打開（限制是預設值）---');
   check(!(await state('btnSearch')), '搜尋：可按');
-  check(await state('btnSave'), '儲存限制：停用');
-  check(await state('btnReset'), '還原預設：停用');
+  check(await state('btnReset'), '還原限制條件：停用（目前就是預設值，按了沒事做）');
+  check(await page.locator('#btnSave').count() === 0, '沒有「儲存限制」按鈕了');
 
-  console.log('\n--- 改動限制之後（還沒儲存）---');
+  console.log('\n--- 三個開關預設全開 ---');
+  for (const name of ['require_availability', 'assume_air_conditioning', 'assume_elevator']) {
+    check(await page.locator(`input[name="${name}"]`).isChecked(), `${name}：預設勾選`);
+  }
+
+  console.log('\n--- 改動限制條件之後 ---');
   await page.fill('#s_hotel_max_per_night_usd', '150');
   await page.waitForTimeout(100);
-  check(await state('btnSearch'), '搜尋：停用（避免用舊限制跑出結果）');
-  check(!(await state('btnSave')), '儲存限制：可按');
-  check(!(await state('btnReset')), '還原預設：可按');
-  check(await page.locator('#dirtyHint').isVisible(), '顯示「請先儲存或還原」提示');
+  check(!(await state('btnSearch')), '搜尋：仍然可按（不需要先儲存）');
+  check(!(await state('btnReset')), '還原限制條件：可按');
 
-  console.log('\n--- 把值改回原本的 ---');
+  console.log('\n--- 改回預設值 ---');
   await page.fill('#s_hotel_max_per_night_usd', '180.0');
   await page.waitForTimeout(100);
-  check(!(await state('btnSearch')), '搜尋：恢復可按');
-  check(await state('btnSave'), '儲存限制：恢復停用');
-  check(!(await page.locator('#dirtyHint').isVisible()), '提示消失');
+  check(await state('btnReset'), '還原限制條件：恢復停用（180.0 和 180 是同一個數字）');
 
-  console.log('\n--- 切換開關也算改動 ---');
-  await page.locator('input[name="assume_air_conditioning"]').uncheck();
+  console.log('\n--- 還原不可以清掉左邊填好的東西 ---');
+  await page.fill('#destination', 'Tokyo Big Sight');
+  await page.fill('#city', 'Tokyo');
+  await page.fill('#check_in', '2027-03-10');
+  await page.fill('#check_out', '2027-03-12');
+  await page.fill('#s_hotel_max_per_night_usd', '120');
   await page.waitForTimeout(100);
-  check(await state('btnSearch'), '勾選框改動也會停用搜尋');
-  await page.locator('input[name="assume_air_conditioning"]').check();
-  await page.waitForTimeout(100);
-  check(!(await state('btnSearch')), '改回來就恢復');
+  await page.click('#btnReset');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  check(await page.inputValue('#destination') === 'Tokyo Big Sight', '目的地還在');
+  check(await page.inputValue('#city') === 'Tokyo', '城市還在');
+  check(await page.inputValue('#check_in') === '2027-03-10', '入住日期還在');
+  check(await page.inputValue('#check_out') === '2027-03-12', '退房日期還在');
+  check(await page.inputValue('#s_hotel_max_per_night_usd') === '180',
+        '限制條件回到預設的 180');
+
+  console.log('\n--- 改了限制直接搜尋，限制會生效並記住 ---');
+  await page.fill('#s_hotel_max_per_night_usd', '100');
+  await page.click('label:has(#modeDemo)');
+  await page.fill('#check_in', '2027-03-10');
+  await page.fill('#check_out', '2027-03-12');
+  await page.click('#btnSearch');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  const summary = await page.locator('.meta').innerText();
+  check(summary.includes('$100'), `摘要顯示套用了 $100 的上限`);
+  check((await page.locator('.badge').innerText()).includes('已自訂'),
+        '標記為「已自訂」');
+  check(!(await state('btnReset')), '還原限制條件：可按（有自訂值可還原）');
+
+  console.log('\n--- 還原之後回到預設 ---');
+  await page.click('#btnReset');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+  check(await page.inputValue('#s_hotel_max_per_night_usd') === '180', '回到 180');
+  check(await state('btnReset'), '還原鈕又變成停用');
 
   console.log('\n--- 重新整理要清空欄位（你回報的問題）---');
+  // 必須從乾淨的頁面開始。重新整理一個 POST 出來的結果頁，
+  // 瀏覽器會重送那次 POST，伺服器本來就該把同樣的值印回來。
+  await page.goto('http://127.0.0.1:5000/');
+  await page.waitForLoadState('load');
   await page.fill('#destination', 'Taipei 101');
   await page.fill('#city', 'Taipei');
   await page.fill('#check_in', '2027-03-10');

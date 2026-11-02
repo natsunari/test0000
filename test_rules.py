@@ -114,10 +114,21 @@ check(v.passed, "沒標冷氣與電梯的飯店仍然合格（本專案最重要
 # 冷氣在 config 裡設為「沒標就推定有」，所以不列入待確認；
 # 電梯沒有設推定，維持「不知道」並列入待確認。
 check(v.amenities["air_conditioning"] == ASSUMED, "冷氣依設定推定為有")
-check(not any("冷氣" in x for x in v.to_confirm), "推定有的項目不列入待確認")
-check(v.amenities["elevator"] == UNKNOWN, "電梯不推定，狀態仍是「不知道」")
-check(any("電梯" in x for x in v.to_confirm), "並標記電梯待確認")
+check(v.amenities["elevator"] == ASSUMED, "電梯依設定推定為有")
+check(not v.to_confirm, "兩項都推定時，待確認清單是空的")
 check(ASSUMED != YES, "「推定有」與「有」是不同狀態，不會混充成已查證")
+# 推定只影響「沒寫」的情況。明確寫「沒有」仍然要淘汰，否則推定就變成忽視資料了。
+no_lift = evaluate(hotel(amenities=[], excluded_amenities=["No elevator"]),
+                   BIG_SIGHT, config, "Tokyo")
+check(not no_lift.passed,
+      "即使設定成推定有，明確標示「沒有電梯」的仍然被淘汰")
+# 關掉推定就回到待確認
+import copy as _copy
+strict = _copy.deepcopy(config)
+strict["assume_when_unknown"]["elevator"] = False
+v2 = evaluate(hotel(), BIG_SIGHT, config=strict, city="Tokyo")
+check(v2.amenities["elevator"] == UNKNOWN, "關掉推定後電梯回到「不知道」")
+check(any("電梯" in x for x in v2.to_confirm), "並重新列入待確認")
 
 v = evaluate(hotel(gps_coordinates=None), BIG_SIGHT, config, "Tokyo")
 check(v.passed and any("座標" in x for x in v.to_confirm),

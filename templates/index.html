@@ -216,12 +216,15 @@
           {% if using_custom %}<span class="badge">已自訂</span>
           {% else %}<span class="badge plain">預設值</span>{% endif %}
         </h3>
-        <p class="sidenote">公司規範或物價有變動時改這裡。改完要先儲存，才能繼續搜尋。</p>
+        <p class="sidenote">公司規範或物價有變動時改這裡。改好直接按搜尋就會套用，
+          下次打開也會記得。</p>
         <div class="sgrid">
         {% for f in settings_fields %}
           {% if f.is_bool %}
             <label class="switch">
-              <input type="checkbox" name="{{ f.name }}" {% if f.value %}checked{% endif %}>
+              <input type="checkbox" name="{{ f.name }}"
+                     data-default="{{ 'on' if f.default else '' }}"
+                     {% if f.value %}checked{% endif %}>
               <span><b>{{ f.label }}</b><em>{{ f.desc }}</em></span>
             </label>
           {% else %}
@@ -229,7 +232,8 @@
               <label for="s_{{ f.name }}">{{ f.label }}
                 {% if f.unit %}<i>（{{ f.unit }}）</i>{% endif %}</label>
               <input type="text" inputmode="decimal" id="s_{{ f.name }}"
-                     name="{{ f.name }}" value="{{ f.value }}" autocomplete="off">
+                     name="{{ f.name }}" value="{{ f.value }}"
+                     data-default="{{ f.default }}" autocomplete="off">
               <em>{{ f.desc }}</em>
             </div>
           {% endif %}
@@ -240,12 +244,9 @@
 
     <div class="actions">
       <button type="submit" name="action" value="search" id="btnSearch">搜尋</button>
-      <span id="dirtyHint" class="dirty-hint" hidden>限制條件已修改，請先儲存或還原</span>
       <span class="spacer"></span>
-      <button type="submit" name="action" value="save_settings"
-              id="btnSave" class="small" disabled>儲存限制</button>
       <button type="submit" name="action" value="reset_settings"
-              id="btnReset" class="small ghost" {% if not using_custom %}disabled{% endif %}>還原預設</button>
+              id="btnReset" class="small ghost" disabled>還原限制條件</button>
     </div>
   </form>
 
@@ -253,64 +254,47 @@
     (function () {
       const form = document.getElementById('mainForm');
       const settingsCol = document.getElementById('settingsCol');
-      const btnSearch = document.getElementById('btnSearch');
-      const btnSave = document.getElementById('btnSave');
       const btnReset = document.getElementById('btnReset');
-      const dirtyHint = document.getElementById('dirtyHint');
       const demoNote = document.getElementById('demoNote');
-      const usingCustom = {{ 'true' if using_custom else 'false' }};
+      const demoRadio = document.getElementById('modeDemo');
 
-      const settingInputs = () =>
-        Array.from(settingsCol.querySelectorAll('input'));
+      const settingInputs = () => Array.from(settingsCol.querySelectorAll('input'));
 
-      // 記下畫面剛印出來時的值，之後拿來比對有沒有被改過
-      let baseline = new Map();
-      function snapshot() {
-        baseline = new Map(settingInputs().map(el =>
-          [el.name, el.type === 'checkbox' ? el.checked : el.value]));
-      }
-      // 180 和 180.0 是同一個數字。用字串比對的話，使用者多打一個 .0
-      // 就會被說「已修改」，搜尋鈕卡住而且怎麼改都解不開。
+      // 180 和 180.0 是同一個數字，用字串比會誤判成「改過了」
       function same(a, b) {
         if (a === b) return true;
         const na = parseFloat(a), nb = parseFloat(b);
         return Number.isFinite(na) && Number.isFinite(nb) && na === nb;
       }
-      function isDirty() {
-        return settingInputs().some(el =>
-          !same(baseline.get(el.name),
-                el.type === 'checkbox' ? el.checked : el.value));
-      }
+
+      // 「還原限制條件」只在真的偏離 config.toml 的預設值時才能按。
+      // 比對的對象是預設值本身，不是上次存的值 —— 否則存過之後就再也還原不了。
       function refresh() {
-        const dirty = isDirty();
-        btnSave.disabled = !dirty;
-        // 「還原預設」在沒有東西可還原時也該是灰的
-        btnReset.disabled = !dirty && !usingCustom;
-        // 限制改了還沒存，就先別搜尋 —— 否則你會看到用舊限制跑出來的結果
-        btnSearch.disabled = dirty;
-        dirtyHint.hidden = !dirty;
+        btnReset.disabled = !settingInputs().some(el =>
+          el.type === 'checkbox'
+            ? el.checked !== (el.dataset.default === 'on')
+            : !same(el.value, el.dataset.default));
       }
 
-      // 瀏覽器會在重新整理或返回時「幫」你把剛才填的值填回去。
-      // 那個還原發生在 load 之後，所以要等 load 才清，提早清會被蓋掉。
+      function syncDemoNote() {
+        if (demoNote && demoRadio) demoNote.hidden = !demoRadio.checked;
+      }
+
+      // 瀏覽器會在重新整理或返回時把剛才填的值填回去，
+      // 而且那發生在 load 之後，所以要等 load 才清，提早清會被蓋掉。
       function clearRestoredValues() {
         form.reset();
-        snapshot();
         refresh();
-        if (demoNote) demoNote.hidden = !document.getElementById('modeDemo').checked;
+        syncDemoNote();
       }
-      snapshot();
       refresh();
       window.addEventListener('load', clearRestoredValues);
       window.addEventListener('pageshow', clearRestoredValues);
 
       settingsCol.addEventListener('input', refresh);
       settingsCol.addEventListener('change', refresh);
-      form.querySelectorAll('input[name="mode"]').forEach(r => {
-        r.addEventListener('change', () => {
-          demoNote.hidden = !document.getElementById('modeDemo').checked;
-        });
-      });
+      form.querySelectorAll('input[name="mode"]').forEach(
+        r => r.addEventListener('change', syncDemoNote));
     })();
   </script>
 

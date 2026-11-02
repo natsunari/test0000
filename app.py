@@ -61,9 +61,13 @@ def settings_fields(config: dict, submitted=None) -> list[dict]:
             value = live[name]
         if kind is not bool:
             value = tidy(value)
+        default = config.get(_sec, {}).get(_key)
         fields.append({
             "name": name, "label": label, "unit": unit, "desc": desc,
             "is_bool": kind is bool, "value": value,
+            # config.toml 的原始預設值。畫面拿它判斷「還原限制條件」要不要啟用 ——
+            # 目前的值就是預設值時，那顆按鈕按了也沒事做。
+            "default": bool(default) if kind is bool else tidy(default),
         })
     return fields
 
@@ -97,69 +101,60 @@ def home():
     base_config = rules.load_config()
     action = request.form.get("action", "search")
 
-    # 儲存／還原限制設定
-    saved_note = None
-    if request.method == "POST" and action == "reset_settings":
+    def left_fields() -> dict:
+        """左邊那些搜尋欄位，使用者剛才填的內容。"""
+        return {
+            "destination": request.form.get("destination", ""),
+            "city": request.form.get("city", ""),
+            "check_in": request.form.get("check_in", ""),
+            "check_out": request.form.get("check_out", ""),
+            "mode": request.form.get("mode", MODE_CACHE),
+        }
+
+    def page(**extra):
+        """組出畫面需要的全部資料。"""
+        config = extra.pop("config", None) or settings.apply(base_config)
+        context = {
+            "config": config,
+            "labels": config.get("labels", {}),
+            "short": config.get("short_labels", {}),
+            "known_venues": sorted(geocode.load_venues().keys()),
+            "known_cities": [c for c in config["taxi_fare"] if c != "default"],
+            "settings_fields": settings_fields(base_config,
+                                               extra.pop("submitted", None)),
+            "using_custom": bool(settings.load()),
+            "MODE_DEMO": MODE_DEMO, "MODE_CACHE": MODE_CACHE,
+            "MODE_REFRESH": MODE_REFRESH,
+        }
+        context.update(extra)
+        return render_template("index.html", **context)
+
+    # 直接打開頁面：空白表單
+    if request.method != "POST":
+        return page(form=empty_form())
+
+    # 還原限制條件 —— 只碰右邊，左邊填好的東西要留著
+    if action == "reset_settings":
         settings.reset()
-        saved_note = "已還原成 config.toml 的預設值。"
-        action = "show"
-    elif request.method == "POST" and action == "save_settings":
-        values, problem = settings.parse_form(request.form)
-        if problem:
-            config = settings.apply(base_config)
-            kept = {
-                "destination": request.form.get("destination", ""),
-                "city": request.form.get("city", ""),
-                "check_in": request.form.get("check_in", ""),
-                "check_out": request.form.get("check_out", ""),
-                "mode": request.form.get("mode", MODE_CACHE),
-            }
-            return render_template(
-                "index.html", form=kept, settings_error=problem,
-                config=config, labels=config.get("labels", {}),
-                short=config.get("short_labels", {}),
-                known_venues=sorted(geocode.load_venues().keys()),
-                known_cities=[c for c in config["taxi_fare"] if c != "default"],
-                settings_fields=settings_fields(base_config, request.form),
-                using_custom=bool(settings.load()),
-                MODE_DEMO=MODE_DEMO, MODE_CACHE=MODE_CACHE, MODE_REFRESH=MODE_REFRESH,
-            )
+        return page(form=left_fields(),
+                    saved_note="限制條件已還原成預設值。左邊的搜尋欄位沒有動。")
+
+    form = left_fields()
+
+    # 限制條件跟著搜尋一起送出，不需要另外儲存
+    values, problem = settings.parse_form(request.form)
+    if problem:
+        return page(form=form, settings_error=problem, submitted=request.form)
+    # 跟預設一樣就不要留下覆寫檔，免得「已自訂」標記名不副實
+    if settings.is_default(base_config, values):
+        settings.reset()
+    else:
         settings.save(values)
-        saved_note = "限制已更新。下次搜尋就會套用新的值。"
-        action = "show"
-
-    config = settings.apply(base_config)
-
-    context = {
-        "config": config,
-        "settings_fields": settings_fields(base_config),
-        "saved_note": saved_note,
-        "using_custom": bool(settings.load()),
-        "labels": config.get("labels", {}),
-        "short": config.get("short_labels", {}),
-        "known_venues": sorted(geocode.load_venues().keys()),
-        "known_cities": [c for c in config["taxi_fare"] if c != "default"],
-        "MODE_DEMO": MODE_DEMO,
-        "MODE_CACHE": MODE_CACHE,
-        "MODE_REFRESH": MODE_REFRESH,
-    }
-
-    # 直接打開頁面（GET）、或剛存完設定時，一律給空白表單
-    if request.method != "POST" or action == "show":
-        return render_template("index.html", form=empty_form(), **context)
-
-    form = {
-        "destination": request.form.get("destination", ""),
-        "city": request.form.get("city", ""),
-        "check_in": request.form.get("check_in", ""),
-        "check_out": request.form.get("check_out", ""),
-        "mode": request.form.get("mode", MODE_CACHE),
-    }
-    context["form"] = form
+    config = settings.apply(base_config, values)
 
     problem = validate(form)
     if problem:
-        return render_template("index.html", error=problem, **context)
+        return page(form=form, error=problem, config=config)
 
     is_demo = form["mode"] == MODE_DEMO
 
@@ -167,7 +162,7 @@ def home():
     try:
         place = DEMO_PLACE if is_demo else geocode.resolve(form["destination"])
     except LookupError as exc:
-        return render_template("index.html", error=str(exc), **context)
+        return page(form=form, error=str(exc), config=config)
 
     # ---- 2. 取得飯店資料 ----
     try:
@@ -178,14 +173,13 @@ def home():
             # ⚠️ 查飯店不能用使用者輸入的原字串。
             # 貼座標時 Google Hotels 看不懂，會回傳完全無關地區的結果
             # （實際踩過：貼東京迪士尼的座標，查出來是美國的露營地）。
-            # 所以用反查出來的地名，查不到地名才退回原字串。
             hotel_query = place.area or form["destination"]
             data, source = search.search_hotels(
                 hotel_query, form["check_in"], form["check_out"],
                 use_cache=form["mode"] != MODE_REFRESH,
             )
     except (search.MissingKey, search.SearchFailed) as exc:
-        return render_template("index.html", error=str(exc), **context)
+        return page(form=form, error=str(exc), config=config)
 
     # ---- 3. 套用規則 ----
     city = DEMO_CITY if is_demo else (form["city"].strip() or None)
@@ -198,9 +192,7 @@ def home():
     verdicts = [v for v in all_verdicts if not v.wrong_type]
     verdicts.sort(key=rules.sort_key)
 
-    # 防呆：如果連最近的一間都在幾十公里外，幾乎可以確定是查飯店的字串
-    # 沒對到目的地，而不是真的附近沒飯店。這種情況要明講，
-    # 不然畫面上會是一堆看似正常、其實毫不相干的結果。
+    # 防呆：連最近的一間都在幾十公里外，幾乎可以確定是查飯店的字串沒對到目的地
     distances = [v.distance_km for v in verdicts if v.distance_km is not None]
     far_warning = None
     if distances and min(distances) > 50:
@@ -210,13 +202,10 @@ def home():
             f"請換個寫法，或直接輸入展館名稱。"
         )
 
-    # ---- 4. 當地貨幣換算 ----
+    # ---- 4. 當地貨幣 ----
     local_currency = fx.currency_for_country(
-        place.country_code, config.get("currency_by_country", {})
-    )
+        place.country_code, config.get("currency_by_country", {}))
     rate = fx.get_rate(local_currency) if local_currency else None
-
-    # 匯率顯示不出來時要說明原因，否則使用者只會覺得「怎麼沒有」
     if rate:
         currency_note = None
     elif not place.country_code:
@@ -227,35 +216,25 @@ def home():
     else:
         currency_note = f"取不到 {local_currency} 匯率（網路或對方服務問題），只顯示美金"
 
-    # ---- 5. 整理給畫面 ----
-    fare_used, fare_is_default = rules.get_fare(config, city)
-    context.update(
-        place=place,
-        source=source,
-        searched=True,
-        fetched_at=data.get("_fetched_at"),
-        total=len(all_verdicts),
-        hidden_types=hidden_types,
-        hotel_query=hotel_query,
-        far_warning=far_warning,
-        clear=[v for v in verdicts if v.passed and not v.to_confirm],
-        needs_check=[v for v in verdicts if v.passed and v.to_confirm],
-        rejected=[v for v in verdicts if not v.passed],
-        fare_used=fare_used,
-        fare_is_default=fare_is_default,
-        city_used=city,
-        rate=rate,
-        currency_note=currency_note,
-        ignored=({"destination": form["destination"].strip() or None,
-                  "dates": f'{form["check_in"]} ~ {form["check_out"]}'}
-                 if is_demo else None),
-    )
-
     # 查成功的地點存起來，下次同一個展館不用再問 OpenStreetMap
     if not is_demo and place.source == "OpenStreetMap":
         geocode.save_venue(form["destination"], place)
 
-    return render_template("index.html", **context)
+    fare_used, fare_is_default = rules.get_fare(config, city)
+    return page(
+        form=form, config=config, place=place, source=source, searched=True,
+        fetched_at=data.get("_fetched_at"), total=len(all_verdicts),
+        hidden_types=hidden_types, hotel_query=hotel_query,
+        far_warning=far_warning,
+        clear=[v for v in verdicts if v.passed and not v.to_confirm],
+        needs_check=[v for v in verdicts if v.passed and v.to_confirm],
+        rejected=[v for v in verdicts if not v.passed],
+        fare_used=fare_used, fare_is_default=fare_is_default, city_used=city,
+        rate=rate, currency_note=currency_note,
+        ignored=({"destination": form["destination"].strip() or None,
+                  "dates": f'{form["check_in"]} ~ {form["check_out"]}'}
+                 if is_demo else None),
+    )
 
 
 if __name__ == "__main__":

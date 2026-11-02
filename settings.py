@@ -39,7 +39,7 @@ EDITABLE = {
          "飯店幾乎都有冷氣，資料沒寫多半只是 Google 沒收錄"),
     "assume_elevator":
         ("assume_when_unknown", "elevator", bool, "沒標電梯時推定為有", "",
-         "小型飯店確實可能沒有，建議保持關閉以便自己確認"),
+         "多數飯店有電梯；明確標示沒有的仍會被淘汰"),
 }
 
 # 合理範圍，避免打錯字造成荒謬的結果（例如上限打成 1800）
@@ -91,6 +91,23 @@ def current(config: dict) -> dict:
         value = merged.get(section, {}).get(key)
         out[name] = bool(value) if kind is bool else value
     return out
+
+
+def is_default(config: dict, values: dict) -> bool:
+    """這組值是不是就等於 config.toml 的預設值。
+
+    是的話就不要寫 settings.json —— 否則「已自訂」標記會亮著，
+    但其實跟預設一模一樣，「還原限制條件」也會變成按了沒事做。
+    """
+    for name, (section, key, kind, *_rest) in EDITABLE.items():
+        default = config.get(section, {}).get(key)
+        current = values.get(name)
+        if kind is bool:
+            if bool(default) != bool(current):
+                return False
+        elif float(default) != float(current):
+            return False
+    return True
 
 
 def parse_form(form) -> tuple[dict, str | None]:

@@ -31,6 +31,7 @@ def good_form(**overrides):
         "taxi_max_per_day_usd": "40",
         "require_availability": "on",
         "assume_air_conditioning": "on",
+        "assume_elevator": "on",
     }
     form.update(overrides)
     return form
@@ -43,7 +44,14 @@ values, problem = settings.parse_form(good_form())
 check(problem is None, "合法的表單不報錯")
 check(values["hotel_max_per_night_usd"] == 180.0, "數字正確轉成 float")
 check(values["require_availability"] is True, "勾選的開關為 True")
-check(values["assume_elevator"] is False, "沒勾的開關為 False")
+check(values["assume_elevator"] is True, "勾選的開關為 True")
+
+# 沒勾的核取方塊根本不會出現在表單資料裡，要確認那會被讀成 False
+unchecked = good_form()
+del unchecked["assume_elevator"]
+values_off, problem_off = settings.parse_form(unchecked)
+check(problem_off is None, "少一個核取方塊不算錯誤")
+check(values_off["assume_elevator"] is False, "沒勾的開關讀成 False")
 
 print("\n--- 這些參數刻意不開放在網頁上調整 ---")
 for name in ("walking_max_km", "road_detour_factor", "buffer_percent"):
@@ -117,9 +125,9 @@ v = rules.evaluate(bare, dest, config, "Tokyo")
 check(v.amenities["air_conditioning"] == rules.ASSUMED,
       "沒標冷氣時推定為有（預設開啟）")
 check(not any("冷氣" in x for x in v.to_confirm), "推定有的項目不列入待確認")
-check(v.amenities["elevator"] == rules.UNKNOWN,
-      "電梯預設不推定，仍是「不知道」")
-check(any("電梯" in x for x in v.to_confirm), "電梯仍列入待確認")
+check(v.amenities["elevator"] == rules.ASSUMED,
+      "電梯預設也推定為有")
+check(not v.to_confirm, "兩項都推定時，待確認清單是空的")
 
 off = settings.apply(config, {"assume_air_conditioning": False})
 v = rules.evaluate(bare, dest, off, "Tokyo")
