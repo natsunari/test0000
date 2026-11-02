@@ -3,146 +3,181 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>我的搜尋工具</title>
+  <title>出差飯店搜尋</title>
   <style>
     :root {
-      --bg: #ffffff;
-      --fg: #1a1a1a;
-      --muted: #666666;
-      --border: #e0e0e0;
-      --accent: #2563eb;
-      --card: #fafafa;
+      --bg:#fff; --fg:#1a1a1a; --muted:#666; --border:#e2e2e2; --card:#fafafa;
+      --accent:#2563eb; --ok:#15803d; --okbg:#f0fdf4; --warn:#b45309;
+      --warnbg:#fffbeb; --bad:#b91c1c; --badbg:#fef2f2;
     }
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #16181c;
-        --fg: #ececec;
-        --muted: #9aa0a6;
-        --border: #2e3238;
-        --accent: #60a5fa;
-        --card: #1e2126;
+      :root:not([data-theme="light"]) {
+        --bg:#16181c; --fg:#ececec; --muted:#9aa0a6; --border:#2e3238; --card:#1e2126;
+        --accent:#60a5fa; --ok:#4ade80; --okbg:#14271a; --warn:#fbbf24;
+        --warnbg:#2a2110; --bad:#f87171; --badbg:#2a1515;
       }
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 32px 16px;
-      background: var(--bg);
-      color: var(--fg);
-      font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
-      line-height: 1.6;
+    :root[data-theme="dark"] {
+      --bg:#16181c; --fg:#ececec; --muted:#9aa0a6; --border:#2e3238; --card:#1e2126;
+      --accent:#60a5fa; --ok:#4ade80; --okbg:#14271a; --warn:#fbbf24;
+      --warnbg:#2a2110; --bad:#f87171; --badbg:#2a1515;
     }
-    .wrap { max-width: 720px; margin: 0 auto; }
-    h1 { font-size: 24px; margin: 0 0 4px; }
-    .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
-    form { display: flex; gap: 8px; flex-wrap: wrap; }
-    input[type=text] {
-      flex: 1 1 240px;
-      padding: 12px 14px;
-      font-size: 16px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-      color: var(--fg);
-    }
-    select, button {
-      padding: 12px 14px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-    }
-    button {
-      background: var(--accent);
-      color: #fff;
-      border-color: transparent;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button:disabled { opacity: .6; cursor: default; }
-    #status { margin: 20px 0 8px; color: var(--muted); font-size: 14px; }
-    .item {
-      border: 1px solid var(--border);
-      background: var(--card);
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-    }
-    .item a { color: var(--accent); font-weight: 600; text-decoration: none; font-size: 17px; }
-    .item a:hover { text-decoration: underline; }
-    .item p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+    *{box-sizing:border-box}
+    body{margin:0;padding:28px 16px;background:var(--bg);color:var(--fg);
+      font-family:-apple-system,"Segoe UI","Microsoft JhengHei",sans-serif;line-height:1.6}
+    .wrap{max-width:860px;margin:0 auto}
+    h1{font-size:23px;margin:0 0 4px}
+    .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+    form{background:var(--card);border:1px solid var(--border);border-radius:12px;
+      padding:18px;margin-bottom:22px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .field{flex:1 1 200px;min-width:0}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+    input[type=text],input[type=date]{width:100%;padding:10px 12px;font-size:15px;
+      border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg)}
+    .hint{font-size:12px;color:var(--muted);margin-top:4px}
+    .checks{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
+    .checks label{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--fg);margin:0}
+    button{padding:11px 22px;font-size:16px;font-weight:600;border:none;border-radius:8px;
+      background:var(--accent);color:#fff;cursor:pointer}
+    .error{background:var(--badbg);border:1px solid var(--bad);color:var(--bad);
+      padding:12px 14px;border-radius:8px;margin-bottom:18px;white-space:pre-line}
+    .meta{background:var(--card);border:1px solid var(--border);border-radius:10px;
+      padding:12px 14px;font-size:13px;color:var(--muted);margin-bottom:22px}
+    .meta b{color:var(--fg)}
+    h2{font-size:17px;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+    h2.ok{color:var(--ok);border-color:var(--ok)}
+    h2.warn{color:var(--warn);border-color:var(--warn)}
+    h2.bad{color:var(--bad);border-color:var(--bad)}
+    .hotel{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;background:var(--card)}
+    .hotel.ok{background:var(--okbg)}
+    .hotel.warn{background:var(--warnbg)}
+    .hotel.bad{background:var(--badbg);opacity:.85}
+    .hname{font-weight:700;font-size:16px;margin-bottom:6px}
+    .hname a{color:var(--accent);text-decoration:none}
+    .hname a:hover{text-decoration:underline}
+    .nums{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;margin-bottom:6px}
+    .nums span{white-space:nowrap}
+    .big{font-weight:700;font-size:15px}
+    ul{margin:6px 0 0;padding-left:20px;font-size:13px}
+    li{margin:2px 0}
+    .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;
+      border:1px solid var(--border);margin-right:5px}
+    .tag.y{color:var(--ok);border-color:var(--ok)}
+    .tag.n{color:var(--bad);border-color:var(--bad)}
+    .tag.u{color:var(--muted)}
+    footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--border);
+      font-size:12px;color:var(--muted)}
+    .empty{color:var(--muted);font-size:14px;padding:10px 0}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>我的搜尋工具</h1>
-    <p class="sub">輸入關鍵字，程式會即時連上網路查詢並顯示結果。</p>
+<div class="wrap">
+  <h1>出差飯店搜尋</h1>
+  <p class="sub">依公司規範與個人需求自動篩選。限制寫在 <code>config.toml</code>，搜尋時不會問你。</p>
 
-    <form id="searchForm">
-      <input type="text" id="keyword" placeholder="例如：台灣黑熊" autofocus>
-      <select id="source">
-        {% for key, src in sources.items() %}
-        <option value="{{ key }}">{{ src.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" id="submitBtn">搜尋</button>
-    </form>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
-    <div id="status"></div>
-    <div id="results"></div>
-  </div>
+  <form method="post">
+    <div class="row">
+      <div class="field" style="flex:2 1 320px">
+        <label for="destination">目的地（展館名稱、地址，或座標）</label>
+        <input type="text" id="destination" name="destination" list="venues"
+               value="{{ form.destination }}"
+               placeholder="例如：Tokyo Big Sight　或　35.6298, 139.7954">
+        <datalist id="venues">
+          {% for v in known_venues %}<option value="{{ v }}">{% endfor %}
+        </datalist>
+        <div class="hint">貼 Google Maps 的座標最準確。打名稱的話會顯示查到的地點讓你確認。</div>
+      </div>
+      <div class="field" style="flex:0 1 160px">
+        <label for="city">城市（查計程車費率）</label>
+        <input type="text" id="city" name="city" list="cities" value="{{ form.city }}"
+               placeholder="Tokyo">
+        <datalist id="cities">
+          {% for c in known_cities %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+        <div class="hint">沒填會用保守預設值</div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="check_in">入住</label>
+        <input type="date" id="check_in" name="check_in" value="{{ form.check_in }}"></div>
+      <div class="field"><label for="check_out">退房</label>
+        <input type="date" id="check_out" name="check_out" value="{{ form.check_out }}"></div>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" name="demo" {% if form.demo %}checked{% endif %}>
+        示範模式（用內建資料，不連網、不花額度）</label>
+      <label><input type="checkbox" name="refresh" {% if form.refresh %}checked{% endif %}>
+        強制重查（忽略快取，會花 1 次額度）</label>
+    </div>
+    <button type="submit">搜尋</button>
+  </form>
 
-  <script>
-    const form = document.getElementById('searchForm');
-    const statusEl = document.getElementById('status');
-    const resultsEl = document.getElementById('results');
-    const submitBtn = document.getElementById('submitBtn');
+  {% if searched %}
+    <div class="meta">
+      目的地：<b>{{ place.label }}</b>（{{ place.source }}）<br>
+      資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}
+      ；共 {{ total }} 筆住宿<br>
+      計程車費率：<b>{{ city_used or '未指定' }}</b>
+      起跳 ${{ fare_used.base_usd }}／每公里 ${{ fare_used.per_km_usd }}
+      {% if fare_is_default %}<b>（保守預設值，建議到 config.toml 填入實際費率）</b>{% endif %}
+    </div>
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();                       // 不要讓網頁整頁重新載入
-      const keyword = document.getElementById('keyword').value.trim();
-      const source = document.getElementById('source').value;
-      if (!keyword) return;
+    {% macro hotel_card(v, kind) %}
+      <div class="hotel {{ kind }}">
+        <div class="hname">{{ v.name }}</div>
+        <div class="nums">
+          {% if v.price_usd %}<span>每晚 <b>${{ '%.0f'|format(v.price_usd) }}</b></span>{% endif %}
+          {% if v.distance_km is not none %}<span>距離 {{ '%.2f'|format(v.distance_km) }} km</span>{% endif %}
+          {% if v.walkable %}<span>🚶 走得到，交通費 $0</span>
+          {% elif v.fare_per_day %}<span>🚕 每日約 ${{ '%.2f'|format(v.fare_per_day) }}</span>{% endif %}
+          {% if v.total_daily_usd %}<span class="big">每日總計 ${{ '%.2f'|format(v.total_daily_usd) }}</span>{% endif %}
+        </div>
+        <div>
+          {% for key, state in v.amenities.items() %}
+            <span class="tag {{ 'y' if state == '有' else ('n' if state == '沒有' else 'u') }}">
+              {{ labels.get(key, key) }}：{{ state }}</span>
+          {% endfor %}
+          {% for key, state in v.bonuses.items() %}
+            <span class="tag {{ 'y' if state == '有' else 'u' }}">
+              {{ labels.get(key, key) }}：{{ state }}</span>
+          {% endfor %}
+        </div>
+        {% if v.rejected_for %}
+          <ul>{% for r in v.rejected_for %}<li>{{ r }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if v.to_confirm %}
+          <ul>{% for r in v.to_confirm %}<li>{{ r }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+    {% endmacro %}
 
-      submitBtn.disabled = true;
-      statusEl.textContent = '搜尋中…';
-      resultsEl.innerHTML = '';
+    <h2 class="ok">✅ 完全符合（{{ clear|length }}）</h2>
+    {% if clear %}{% for v in clear %}{{ hotel_card(v, 'ok') }}{% endfor %}
+    {% else %}<div class="empty">沒有任何一間所有條件都有明確資料。看下面那區。</div>{% endif %}
 
-      try {
-        // 呼叫我們自己寫的 /api/search，由 Python 那邊負責真正連外網
-        const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}&source=${source}`);
-        const data = await res.json();
+    <h2 class="warn">⚠️ 符合限制，但有項目要自己確認（{{ needs_check|length }}）</h2>
+    {% if needs_check %}
+      <div class="empty">預算與交通費都過關。下面列出的是 Google 沒有提供資料的項目
+        —— 「不知道」不代表沒有，點開飯店頁面確認一下即可。</div>
+      {% for v in needs_check %}{{ hotel_card(v, 'warn') }}{% endfor %}
+    {% else %}<div class="empty">無</div>{% endif %}
 
-        if (!res.ok) {
-          statusEl.textContent = '錯誤：' + (data.error || '未知問題');
-          return;
-        }
-        if (data.count === 0) {
-          statusEl.textContent = `找不到「${data.keyword}」的結果。`;
-          return;
-        }
+    <h2 class="bad">❌ 已排除（{{ rejected|length }}）</h2>
+    {% if rejected %}
+      <div class="empty">列出來是為了讓你知道為什麼不見了，不是要你看的。</div>
+      {% for v in rejected %}{{ hotel_card(v, 'bad') }}{% endfor %}
+    {% else %}<div class="empty">無</div>{% endif %}
+  {% endif %}
 
-        statusEl.textContent = `找到 ${data.count} 筆結果：`;
-        for (const item of data.results) {
-          const div = document.createElement('div');
-          div.className = 'item';
-          const link = document.createElement('a');
-          link.href = item.url;
-          link.target = '_blank';
-          link.rel = 'noopener';
-          link.textContent = item.title;
-          const desc = document.createElement('p');
-          desc.textContent = item.snippet;           // 用 textContent 比較安全
-          div.append(link, desc);
-          resultsEl.appendChild(div);
-        }
-      } catch (err) {
-        statusEl.textContent = '無法連線到本機程式，請確認終端機裡的 python app.py 還在執行。';
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-  </script>
+  <footer>
+    地點查詢由 <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> 提供，
+    依 <a href="https://operations.osmfoundation.org/policies/nominatim/">Nominatim 使用政策</a> 使用。
+    飯店資料來自 SerpApi（Google Hotels）。<br>
+    房價與空房為<b>查詢當下</b>的狀態，不保證仍可訂到。交通費為估算值，非實際報價。
+  </footer>
+</div>
 </body>
 </html>

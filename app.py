@@ -1,107 +1,124 @@
 """
-最小可用的「聯網搜尋工具」
+出差飯店搜尋 —— 網頁介面
 
-這支程式做三件事：
-  1. 在你自己的電腦上開一個小型網站（只有你看得到）
-  2. 你在網頁上輸入關鍵字
-  3. 程式去「網路上」（維基百科）查資料，再把結果顯示回網頁
-
-Mac 和 Windows 的執行方式完全一樣，指令都是：
+啟動：
     python app.py
-然後打開瀏覽器到 http://127.0.0.1:5000
+然後打開 http://127.0.0.1:5000
+
+流程：
+    你輸入目的地（地址或座標）與日期
+      → 解析座標（geocode.py）
+      → 查飯店，有快取就用快取（search.py）
+      → 套用公司與個人限制（rules.py）
+      → 分成「完全符合 / 待確認 / 已排除」三區顯示
+
+示範模式：
+    勾選「示範模式」就用內建的測試資料跑完整流程，
+    不連網、不消耗 API 額度，用來先看看介面長怎樣。
 """
 
-import requests
-from flask import Flask, jsonify, render_template, request
+from __future__ import annotations
 
-# 建立這個網站應用程式
+from datetime import date, timedelta
+
+from flask import Flask, render_template, request
+
+import geocode
+import rules
+import search
+
 app = Flask(__name__)
 
-# 不同的「資料來源」設定。以後要加新的搜尋來源，就在這裡加一筆。
-SOURCES = {
-    "zh": {
-        "name": "中文維基百科",
-        "api": "https://zh.wikipedia.org/w/api.php",
-        "page": "https://zh.wikipedia.org/wiki/",
-    },
-    "en": {
-        "name": "英文維基百科",
-        "api": "https://en.wikipedia.org/w/api.php",
-        "page": "https://en.wikipedia.org/wiki/",
-    },
-}
-
-# 有禮貌地告訴對方我們是誰。很多網站的 API 都要求這一行，否則會拒絕回應。
-HEADERS = {"User-Agent": "MyFirstSearchTool/1.0 (learning project)"}
+# 示範模式固定用東京國際展示場，因為測試資料就是在那裡查的
+DEMO_PLACE = geocode.Place(35.6298, 139.7954, "Tokyo Big Sight（示範資料）", "示範模式")
+DEMO_CITY = "Tokyo"
 
 
-def search_wikipedia(keyword: str, source_key: str) -> list[dict]:
-    """
-    真正「連上網路」的部分。
+def default_dates() -> tuple[str, str]:
+    """預設帶一個月後的兩晚，使用者可以改。"""
+    start = date.today() + timedelta(days=30)
+    return start.isoformat(), (start + timedelta(days=2)).isoformat()
 
-    keyword    -- 使用者輸入的關鍵字
-    source_key -- "zh" 或 "en"
-    回傳       -- 一串搜尋結果，每一筆有 title / snippet / url
-    """
-    source = SOURCES[source_key]
 
-    # 這些是要交給維基百科 API 的查詢條件
-    params = {
-        "action": "query",
-        "list": "search",
-        "srsearch": keyword,
-        "srlimit": 10,        # 最多拿 10 筆
-        "format": "json",
+@app.route("/", methods=["GET", "POST"])
+def home():
+    config = rules.load_config()
+    check_in_default, check_out_default = default_dates()
+
+    form = {
+        "destination": request.form.get("destination", ""),
+        "check_in": request.form.get("check_in") or check_in_default,
+        "check_out": request.form.get("check_out") or check_out_default,
+        "city": request.form.get("city", ""),
+        "demo": request.form.get("demo") == "on",
+        "refresh": request.form.get("refresh") == "on",
     }
 
-    # 送出網路請求。timeout 很重要：避免對方沒回應時程式卡死。
-    response = requests.get(source["api"], params=params, headers=HEADERS, timeout=10)
-    response.raise_for_status()   # 如果對方回傳錯誤（例如 500），這行會丟出例外
-    data = response.json()        # 把回來的 JSON 文字轉成 Python 可用的資料
+    context = {
+        "form": form,
+        "config": config,
+        "labels": config.get("labels", {}),
+        "known_venues": sorted(geocode.load_venues().keys()),
+        "known_cities": [c for c in config["taxi_fare"] if c != "default"],
+    }
 
-    results = []
-    for item in data.get("query", {}).get("search", []):
-        results.append({
-            "title": item["title"],
-            # 維基百科回傳的摘要含有 HTML 標籤，這裡簡單清掉
-            "snippet": item.get("snippet", "")
-                           .replace('<span class="searchmatch">', "")
-                           .replace("</span>", ""),
-            "url": source["page"] + item["title"].replace(" ", "_"),
-        })
-    return results
+    if request.method != "POST":
+        return render_template("index.html", **context)
 
-
-@app.route("/")
-def home():
-    """使用者打開 http://127.0.0.1:5000 時，顯示搜尋頁面。"""
-    return render_template("index.html", sources=SOURCES)
-
-
-@app.route("/api/search")
-def api_search():
-    """網頁在背景呼叫這個網址來取得搜尋結果（回傳 JSON，不是網頁）。"""
-    keyword = request.args.get("q", "").strip()
-    source_key = request.args.get("source", "zh")
-
-    # 防守性檢查：使用者可能什麼都沒輸入，或亂傳來源名稱
-    if not keyword:
-        return jsonify({"error": "請輸入關鍵字"}), 400
-    if source_key not in SOURCES:
-        return jsonify({"error": "不支援的資料來源"}), 400
-
+    # ---- 1. 目的地轉座標 ----
     try:
-        results = search_wikipedia(keyword, source_key)
-    except requests.Timeout:
-        return jsonify({"error": "連線逾時，請確認網路後再試一次"}), 504
-    except requests.RequestException as exc:
-        return jsonify({"error": f"連線失敗：{exc}"}), 502
+        if form["demo"]:
+            place = DEMO_PLACE
+        else:
+            place = geocode.resolve(form["destination"])
+    except LookupError as exc:
+        return render_template("index.html", error=str(exc), **context)
 
-    return jsonify({"keyword": keyword, "count": len(results), "results": results})
+    # ---- 2. 取得飯店資料 ----
+    try:
+        if form["demo"]:
+            data, source = search.load_fixture(), "示範資料"
+        else:
+            data, source = search.search_hotels(
+                form["destination"], form["check_in"], form["check_out"],
+                use_cache=not form["refresh"],
+            )
+    except (search.MissingKey, search.SearchFailed) as exc:
+        return render_template("index.html", error=str(exc), **context)
+
+    # ---- 3. 套用規則 ----
+    city = DEMO_CITY if form["demo"] else (form["city"].strip() or None)
+    destination = (place.latitude, place.longitude)
+    verdicts = [
+        rules.evaluate(h, destination, config, city)
+        for h in data.get("properties", [])
+    ]
+    verdicts.sort(key=rules.sort_key)
+
+    # ---- 4. 分成三區 ----
+    context.update(
+        place=place,
+        source=source,
+        searched=True,
+        fetched_at=data.get("_fetched_at"),
+        total=len(verdicts),
+        clear=[v for v in verdicts if v.passed and not v.to_confirm],
+        needs_check=[v for v in verdicts if v.passed and v.to_confirm],
+        rejected=[v for v in verdicts if not v.passed],
+        fare_used=rules.get_fare(config, city)[0],
+        fare_is_default=rules.get_fare(config, city)[1],
+        city_used=city,
+    )
+
+    # 查成功的地點存起來，下次同一個展館不用再問 OpenStreetMap
+    if not form["demo"] and place.source == "OpenStreetMap":
+        geocode.save_venue(form["destination"], place)
+
+    return render_template("index.html", **context)
 
 
 if __name__ == "__main__":
-    # debug=True 代表：你改了程式存檔後，網站會自動重新載入，方便學習時反覆嘗試
     print("\n  網站已啟動，請在瀏覽器打開： http://127.0.0.1:5000")
-    print("  要停止的話，回到終端機按 Ctrl + C\n")
+    print("  要停止的話，回到終端機按 Ctrl + C")
+    print("  第一次使用可以先勾「示範模式」，不花 API 額度\n")
     app.run(host="127.0.0.1", port=5000, debug=True)
