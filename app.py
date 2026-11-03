@@ -131,11 +131,28 @@ def hotel_search_query(destination: str, place) -> str:
     typed_a_name = not (geocode.parse_coordinates(destination)
                         or geocode.coordinates_from_maps_url(destination))
 
+    def with_area(candidate: str) -> str:
+        """
+        補上「城市, 國家」把查詢釘在正確的地理範圍。
+
+        這是最後一道保險。地標判斷失誤時（例如把地址上的餃子店
+        "Harajuku Gyoza" 當成地標），Google 會憑字面跑到東京去，
+        結果出現在 18939 公里外。帶上城市就不會離開目的地所在的地區。
+        """
+        area = place.area
+        if not area or area.lower() in candidate.lower():
+            return candidate
+        # 使用者自己打的字裡已經有城市名就不重複加
+        if any(part.strip().lower() in candidate.lower()
+               for part in area.split(",") if part.strip()):
+            return candidate
+        return f"{candidate}, {area}"
+
     for candidate in (place.landmark,
                       destination if typed_a_name else None,
                       place.area):
         if candidate and not _CJK_RE.search(candidate):
-            return candidate
+            return with_area(candidate)
     # 全部都含中日韓文字或都沒有時，用有東西的那個，總比送座標字串好
     return place.landmark or place.area or destination
 

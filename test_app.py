@@ -89,6 +89,26 @@ for label, typed in [
     got = app.hotel_search_query(typed, taipei101)
     check(got == "Taipei 101", f"用{label}查 → 送出「{got}」")
 
+print("\n--- 查詢字串要釘住地理範圍 ---")
+# 最後一道保險：地標判斷失誤時，帶上城市就不會跑到別的國家
+wrong_landmark = geocode.Place(-33.874, 151.201, "label", "OpenStreetMap",
+                               "au", "Sydney, Australia", "Harajuku Gyoza")
+got = app.hotel_search_query("14 Darling Dr, Sydney NSW 2000", wrong_landmark)
+check(got == "Harajuku Gyoza, Sydney, Australia",
+      f"地標誤判成餃子店時仍釘在雪梨 →「{got}」")
+check("Sydney" in got,
+      "沒有這道保險的話 Google 會看到 Harajuku 跑去搜東京（實際發生過，差 18939 公里）")
+
+check(app.hotel_search_query("Taipei 101", taipei101) == "Taipei 101",
+      "名稱裡已經有城市就不重複加")
+no_lm_au = geocode.Place(-33.874, 151.201, "l", "s", "au", "Sydney, Australia", None)
+check(app.hotel_search_query("Darling Harbour Sydney", no_lm_au)
+      == "Darling Harbour Sydney",
+      "使用者自己打的字裡有城市也不重複加")
+check(app.hotel_search_query("Darling Harbour", no_lm_au)
+      == "Darling Harbour, Sydney, Australia",
+      "沒有城市就補上")
+
 print("\n--- 解析不到地標時的退路 ---")
 no_landmark = geocode.Place(25.03, 121.56, "label", "OpenStreetMap",
                             "tw", "Taipei, Taiwan", None)

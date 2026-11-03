@@ -35,6 +35,10 @@ USER_AGENT = (
 
 VENUES_PATH = Path(__file__).parent / "venues.json"
 
+# 已存地點的格式版本。解析邏輯改動（例如開始排除日常店家）之後要加一，
+# 舊的紀錄才會自動重查 —— 否則一個錯誤的地標會永遠卡在使用者的檔案裡。
+VENUE_SCHEMA = 2
+
 # 遵守每秒 1 次的限制
 _MIN_INTERVAL_SECONDS = 1.1
 _last_request_at = 0.0
@@ -188,18 +192,39 @@ def _area_from_address(address: dict | None) -> str | None:
     return ", ".join(parts) if parts else None
 
 
+# 這些類型是「那個地址上剛好有的一家店」，不是地標。
+# 實際踩過：查「14 Darling Dr, Sydney」解析出 "Harajuku Gyoza"（一家餃子店），
+# 拿去查飯店時 Google 看到 Harajuku 就跑去搜東京原宿，結果在 18939 公里外。
+_NOT_A_LANDMARK = {
+    "restaurant", "cafe", "fast_food", "bar", "pub", "bakery", "ice_cream",
+    "food_court", "biergarten",
+    "bank", "atm", "pharmacy", "clinic", "dentist", "doctors", "veterinary",
+    "hairdresser", "beauty", "laundry", "car_repair", "fuel", "car_wash",
+    "convenience", "supermarket", "kiosk", "newsagent", "florist",
+    "clothes", "shoes", "mobile_phone", "optician", "jewelry",
+    "post_office", "police", "fire_station",
+}
+
+
 def _poi_name(data: dict, address: dict | None) -> str | None:
     """
     從 Nominatim 的回應取出「這個地點本身的名字」。
 
     正向查詢（文字→座標）與反向查詢（座標→地名）都用這個，
     這樣不論使用者輸入名稱、地址還是座標，都會解析到同一個地標。
+
+    但要擋掉日常店家 —— 查一個街道地址時，Nominatim 常常回傳
+    那棟樓裡的某家餐廳或商店，那不是地標，拿去查飯店會跑到別的城市。
     """
+    kind = str(data.get("type") or "").strip().lower()
+    if kind in _NOT_A_LANDMARK:
+        return None
+
     name = data.get("name")
     if isinstance(name, str) and name.strip():
         return name.strip()
     for key in ("tourism", "attraction", "building", "amenity",
-                "leisure", "shop", "office", "historic"):
+                "leisure", "historic"):
         value = (address or {}).get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -259,6 +284,7 @@ def save_venue(key: str, place: Place, path: Path | None = None) -> None:
         "country_code": place.country_code,
         "area": place.area,
         "landmark": place.landmark,
+        "v": VENUE_SCHEMA,
     }
     p.write_text(json.dumps(venues, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -305,9 +331,20 @@ def resolve(text: str, *, allow_network: bool = True,
         place = Place(saved["latitude"], saved["longitude"],
                       saved["label"], "已存地點", saved.get("country_code"),
                       saved.get("area"), saved.get("landmark"))
-        # 舊版存的紀錄沒有國碼與地名（當時還沒有這些功能）。
-        # 缺了就反查一次補上，否則當地貨幣顯示不出來、查飯店也會用錯字串。
-        if (place.country_code and place.area and place.landmark) or not allow_network:
+
+        # 舊格式的紀錄要整筆重查。解析規則改過（例如開始排除餐廳、商店），
+        # 但存檔裡那個錯誤的地標不會自己消失。
+        if saved.get("v") != VENUE_SCHEMA and allow_network:
+            try:
+                fresh = _query_nominatim(text)
+            except LookupError:
+                return place        # 重查失敗就照舊用，不要讓搜尋整個失敗
+            save_venue(text, fresh, venues_path)
+            fresh.source = "已存地點（已更新）"
+            return fresh
+
+        # 格式夠新但缺國碼或地名時，反查補上即可
+        if (place.country_code and place.area) or not allow_network:
             return place
         landmark, area, country = reverse_lookup(place.latitude, place.longitude)
         if landmark or area or country:

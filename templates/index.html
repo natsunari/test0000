@@ -398,7 +398,13 @@
         {%- endif %}{% if hidden_types and hidden_dorms %}、{% endif %}
         {%- if hidden_dorms %} {{ hidden_dorms }} 筆名稱看起來是通舖（青年旅館等）
         {%- endif %} 已直接略過{% endif %}<br>
-      套用的限制：房價 ≤ <b>${{ '%g'|format(config.budget.hotel_max_per_night_usd) }}</b>／晚，
+      套用的限制：房價
+        {%- if config.budget.hotel_min_per_night_usd %}
+          <b>${{ '%g'|format(config.budget.hotel_min_per_night_usd) }}</b> ～
+          <b>${{ '%g'|format(config.budget.hotel_max_per_night_usd) }}</b>／晚，
+        {%- else %}
+          ≤ <b>${{ '%g'|format(config.budget.hotel_max_per_night_usd) }}</b>／晚，
+        {%- endif %}
         交通單趟 ≤ <b>${{ '%g'|format(config.budget.taxi_max_one_way_usd) }}</b>、
         每日 ≤ <b>${{ '%g'|format(config.budget.taxi_max_per_day_usd) }}</b>，
         走路可達門檻 <b>{{ (config.distance.walking_max_km * 1000)|round|int }}</b> 公尺

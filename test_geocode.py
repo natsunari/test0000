@@ -116,6 +116,64 @@ try:
 finally:
     geocode.requests.get = original_get
 
+print("\n--- 地址上的店家不是地標 ---")
+# 實際踩過：查「14 Darling Dr, Sydney」解析出 "Harajuku Gyoza"（一家餃子店），
+# 拿去查飯店時 Google 看到 Harajuku 就跑去搜東京原宿，結果在 18939 公里外。
+for data, address, expected, label in [
+    ({"name": "Harajuku Gyoza", "type": "restaurant"}, {}, None, "餐廳"),
+    ({"name": "Starbucks", "type": "cafe"}, {}, None, "咖啡店"),
+    ({"name": "7-Eleven", "type": "convenience"}, {}, None, "便利商店"),
+    ({"name": "ANZ", "type": "bank"}, {}, None, "銀行"),
+    ({"name": "Taipei 101", "type": "attraction"}, {}, "Taipei 101", "觀光地標"),
+    ({"name": "Tokyo Big Sight", "type": "exhibition_centre"}, {},
+     "Tokyo Big Sight", "展覽館"),
+    ({"name": "Sofitel Sydney", "type": "hotel"}, {}, "Sofitel Sydney", "飯店"),
+    ({}, {"building": "International Convention Centre"},
+     "International Convention Centre", "只有 building 欄位"),
+]:
+    got = geocode._poi_name(data, address)
+    check(got == expected, f"{label} → {got}")
+
+print("\n--- 舊格式的已存地點要整筆重查 ---")
+# 解析規則改過之後，使用者檔案裡那個錯誤的地標不會自己消失
+with tempfile.TemporaryDirectory() as tmp:
+    venues = Path(tmp) / "venues.json"
+    venues.write_text(json.dumps({
+        "14 darling dr, sydney nsw 2000": {
+            "latitude": -33.874, "longitude": 151.201,
+            "label": "Harajuku Gyoza, 14, Darling Drive, Sydney",
+            "landmark": "Harajuku Gyoza", "area": "Sydney, Australia",
+            "country_code": "au",
+        }   # 注意：沒有 "v" 欄位，代表是舊格式
+    }, ensure_ascii=False), encoding="utf-8")
+
+    class FreshLookup:
+        status_code = 200
+        @staticmethod
+        def json():
+            return [{"lat": "-33.874", "lon": "151.201",
+                     "display_name": "14, Darling Drive, Haymarket, Sydney",
+                     "type": "house",
+                     "address": {"city": "Sydney", "country": "Australia",
+                                 "country_code": "au"}}]
+
+    _orig = geocode.requests.get
+    geocode._last_request_at = 0.0
+    geocode.requests.get = lambda *a, **k: FreshLookup()
+    try:
+        place = geocode.resolve("14 Darling Dr, Sydney NSW 2000",
+                                venues_path=venues)
+        check(place.landmark is None,
+              "重查後不再帶著錯誤的地標「Harajuku Gyoza」")
+        check(place.area == "Sydney, Australia", "城市與國家仍然正確")
+        check("更新" in place.source, f"來源標示為「{place.source}」")
+        saved = json.loads(venues.read_text(encoding="utf-8"))
+        entry = saved["14 darling dr, sydney nsw 2000"]
+        check(entry.get("v") == geocode.VENUE_SCHEMA, "存檔已升級成新格式")
+        check(entry.get("landmark") is None, "存檔裡的錯誤地標也清掉了")
+    finally:
+        geocode.requests.get = _orig
+
 print("\n--- 反查要優先取地標名稱，而不是城市 ---")
 # 查飯店時「Taipei 101」比「台北市, 台灣」好用 ——
 # Google 會把結果集中在地標附近，用城市搜則散到整座城市。
