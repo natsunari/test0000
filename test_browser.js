@@ -100,6 +100,11 @@ const { chromium } = require('playwright');
         '雪梨在清單裡');
   check(await page.locator('#cities option[label="已有費率"]').count() >= 4,
         '已填費率的城市有特別標示');
+  const names = await page.locator('#cities option').evaluateAll(
+    els => els.map(e => e.value));
+  const sorted = [...names].sort((a, b) => a.localeCompare(b, 'en'));
+  check(JSON.stringify(names) === JSON.stringify(sorted),
+        `城市清單由 A 到 Z 排序（${names[0]} … ${names[names.length - 1]}）`);
 
   console.log('\n--- 清單裡沒有的城市也要能自己打 ---');
   await page.fill('#city', 'Reykjavik');

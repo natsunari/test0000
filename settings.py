@@ -22,12 +22,13 @@ SETTINGS_PATH = Path(__file__).parent / "settings.json"
 # 那些是「怎麼計算」的參數，不是公司規範，放上去只會讓人每次搜尋前猶豫。
 # 要調整的話改 config.toml。
 EDITABLE = {
-    "hotel_max_per_night_usd":
-        ("budget", "hotel_max_per_night_usd", float, "住宿每晚上限", "USD",
-         "公司規範的房價上限"),
+    # 顯示順序就是這裡的順序。下限在前、上限在後，讀起來才像一個區間。
     "hotel_min_per_night_usd":
         ("budget", "hotel_min_per_night_usd", float, "住宿每晚下限", "USD",
          "擋青年旅館用。低於當地正常飯店行情的多半是通舖。0 = 關閉"),
+    "hotel_max_per_night_usd":
+        ("budget", "hotel_max_per_night_usd", float, "住宿每晚上限", "USD",
+         "公司規範的房價上限"),
     "taxi_max_one_way_usd":
         ("budget", "taxi_max_one_way_usd", float, "單趟交通上限", "USD",
          "飯店到目的地的單程車資上限"),

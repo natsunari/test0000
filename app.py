@@ -37,17 +37,11 @@ MODE_REFRESH = "refresh"
 
 
 def _city_options(config: dict) -> list[dict]:
-    """城市下拉選單的內容，有費率的排前面並標示出來。"""
-    with_fare = [c for c in config.get("taxi_fare", {}) if c != "default"]
-    suggested = config.get("ui", {}).get("suggested_cities", [])
-    seen = set()
-    options = []
-    for name in with_fare + suggested:
-        if name in seen:
-            continue
-        seen.add(name)
-        options.append({"name": name, "has_fare": name in with_fare})
-    return options
+    """城市下拉選單的內容，A 到 Z 排序，有費率的標示出來。"""
+    with_fare = {c for c in config.get("taxi_fare", {}) if c != "default"}
+    names = with_fare | set(config.get("ui", {}).get("suggested_cities", []))
+    return [{"name": n, "has_fare": n in with_fare}
+            for n in sorted(names, key=str.casefold)]
 
 
 def settings_fields(config: dict, submitted=None) -> list[dict]:
