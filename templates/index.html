@@ -26,6 +26,10 @@
     /* ---------- 搜尋區塊 ---------- */
     .row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
     .field{flex:1 1 200px;min-width:0}
+    /* hidden 屬性要永遠贏過自訂的 display。
+       這裡好幾個東西（遮罩、輪播箭頭、城市清單）都設了 display:flex 之類的值，
+       會蓋掉瀏覽器預設的 [hidden]{display:none}，變成「設了 hidden 卻還看得到」。 */
+    [hidden]{display:none !important}
     label{display:block;font-size:13px;font-weight:600;color:var(--fg);margin-bottom:5px}
     input[type=text],input[type=date]{width:100%;padding:10px 12px;font-size:15px;
       border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--fg)}
@@ -130,18 +134,49 @@
     h2.bad{color:var(--bad)} h2.bad .count{background:var(--bad-bg);border:1px solid var(--bad-line)}
     .lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 
+    /* 城市欄：自訂下拉。
+       原本用瀏覽器內建的 datalist，但欄位裡已經有字的時候，Chrome 只會列出
+       「開頭吻合現在這串字」的項目 —— 填了 Sydney 就只剩 Sydney 一筆，
+       看起來像選單壞掉，想換城市只能先把字刪掉。自訂的版本按 ▾ 一律列出全部。 */
+    .combo{position:relative}
+    .combo > input{padding-right:34px}
+    .combo-toggle{position:absolute;top:0;right:0;width:32px;height:100%;
+      padding:0;background:none;border:none;border-radius:0 9px 9px 0;
+      color:var(--muted);font-size:13px;line-height:1;cursor:pointer;
+      display:flex;align-items:center;justify-content:center}
+    /* 底下那條 button:hover 會把它塗成藍色，所以這裡要把背景再按回去 */
+    .combo-toggle:hover:not(:disabled){background:none;color:var(--fg)}
+    .combo.open .combo-toggle{transform:rotate(180deg)}
+    /* 城市欄只有 150px 寬，清單跟著一樣寬的話「Abu Dhabi　依國家費率」會折行。
+       所以讓它照內容撐開，往右多借一點空間。 */
+    .combo-list{position:absolute;z-index:40;top:calc(100% + 4px);left:0;
+      min-width:100%;width:max-content;max-width:290px;
+      margin:0;padding:4px;list-style:none;max-height:280px;overflow-y:auto;
+      background:#fff;border:1px solid var(--line);border-radius:10px;
+      box-shadow:0 8px 24px rgba(16,24,40,.12);scrollbar-width:thin}
+    .combo-list li{padding:7px 10px;border-radius:7px;font-size:14px;cursor:pointer;
+      display:flex;align-items:baseline;gap:10px;justify-content:space-between}
+    .combo-list li > span{white-space:nowrap}
+    .combo-list li small{color:var(--muted);font-size:11px;white-space:nowrap;
+      flex:0 0 auto}
+    .combo-list li.none{white-space:normal}
+    .combo-list li:hover,.combo-list li.on{background:var(--accent-soft)}
+    .combo-list li.none{color:var(--muted);cursor:default;background:none}
+
     .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 
-    /* 超過 6 筆就改成橫向輪播。一次塞十幾張卡片會把頁面拉得很長，
+    /* 三筆以上就改成橫向捲動。一次塞十幾張卡片會把頁面拉得很長，
        而你只會仔細看前面幾張。觸控板、觸控螢幕可以直接滑，
-       滑鼠使用者用兩側的箭頭。 */
+       滑鼠使用者用兩側的箭頭。
+       卡片用 flex:1 0 290px —— 放得下的時候長大撐滿整列（看起來跟格線一樣），
+       放不下才維持 290px 並往右溢出。這樣三筆不會變成一排窄卡片加一片空白。 */
     .carousel{position:relative}
     .track{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 10px;
       scroll-snap-type:x mandatory;scroll-behavior:smooth;
       scrollbar-width:thin;scrollbar-color:#c8cdd4 transparent}
     .track::-webkit-scrollbar{height:8px}
     .track::-webkit-scrollbar-thumb{background:#c8cdd4;border-radius:99px}
-    .track > .card{flex:0 0 290px;scroll-snap-align:start}
+    .track > .card{flex:1 0 290px;scroll-snap-align:start}
     .cnav{position:absolute;top:-38px;right:0;display:flex;gap:6px}
     .cnav button{width:30px;height:30px;padding:0;border-radius:8px;
       background:#fff;color:var(--fg);border:1px solid var(--line);
@@ -214,14 +249,24 @@
           </div>
           <div class="field" style="flex:0 1 150px">
             <label for="city">城市</label>
-            <input type="text" id="city" name="city" list="cities" value="{{ form.city }}"
-                   autocomplete="off" placeholder="留空＝用預設">
+            <div class="combo" id="cityCombo">
+              <input type="text" id="city" name="city" list="cities" value="{{ form.city }}"
+                     autocomplete="off" placeholder="留空＝用預設"
+                     role="combobox" aria-expanded="false" aria-controls="cityList"
+                     aria-autocomplete="list">
+              <button type="button" class="combo-toggle" id="cityToggle"
+                      tabindex="-1" aria-label="展開城市清單">▾</button>
+              <ul class="combo-list" id="cityList" role="listbox" hidden></ul>
+            </div>
+            {# datalist 同時是清單的資料來源，也是沒有 JavaScript 時的退路。
+               JS 一啟動就會把 input 的 list 屬性拿掉，改用上面那個自訂清單 ——
+               不然瀏覽器內建的選單會跟自訂選單疊在一起。 #}
             <datalist id="cities">
               {% for c in city_options %}
                 <option value="{{ c.name }}"{% if c.note %} label="{{ c.note }}"{% endif %}>
               {% endfor %}
             </datalist>
-            <div class="hint">查計程車費率，建議填。可以從清單選，也可以自己輸入。</div>
+            <div class="hint">查計程車費率，建議填。按右邊的 ▾ 看全部城市，也可以自己輸入。</div>
           </div>
         </div>
         <div class="row">
@@ -261,8 +306,7 @@
           {% if using_custom %}<span class="badge">已自訂</span>
           {% else %}<span class="badge plain">預設值</span>{% endif %}
         </h3>
-        <p class="sidenote">公司規範或物價有變動時改這裡。改好直接按搜尋就會套用，
-          下次打開也會記得。</p>
+        <p class="sidenote">公司規範或物價有變動時改這裡</p>
         <div class="sgrid">
         {% for f in settings_fields %}
           {% if f.is_bool %}
@@ -279,7 +323,7 @@
               <input type="text" inputmode="decimal" id="s_{{ f.name }}"
                      name="{{ f.name }}" value="{{ f.value }}"
                      data-default="{{ f.default }}" autocomplete="off">
-              <em>{{ f.desc }}</em>
+              {% if f.desc %}<em>{{ f.desc }}</em>{% endif %}
             </div>
           {% endif %}
         {% endfor %}
@@ -518,9 +562,9 @@
       </div>
     {% endif %}
 
-    {# 超過 6 筆就橫向輪播，否則照常用格線排 #}
+    {# 三筆以上就橫向捲動，否則照常用格線排 #}
     {% macro cards(items, kind) %}
-      {% if items|length > 6 %}
+      {% if items|length >= 3 %}
         <div class="carousel">
           <p class="cnote">共 {{ items|length }} 筆，往右滑看更多（已依順序排好，前面的最合適）</p>
           <div class="cnav">
@@ -538,7 +582,7 @@
     {% if clear %}{{ cards(clear, 'ok') }}
     {% else %}<p class="empty">沒有任何一間所有條件都有明確資料。看下面那區。</p>{% endif %}
 
-    <h2 class="warn">⚠️ 符合限制，但有項目要自己確認 <span class="count">{{ needs_check|length }}</span></h2>
+    <h2 class="warn">⚠️ 非完全符合 <span class="count">{{ needs_check|length }}</span></h2>
     {% if needs_check %}
       <p class="lead">預算與交通費都過關。標籤上的 <b>？</b> 代表 Google 沒有這筆資料 —— 不代表沒有，點開飯店頁面確認一下即可。
         <span style="white-space:nowrap">（Ｏ＝有、Ｘ＝沒有、？＝未確認）</span></p>
@@ -553,13 +597,134 @@
   {% endif %}
 
   <script>
-    // 輪播的左右箭頭。滑到頭的時候要變灰，不然會一直按卻沒反應。
+    // 城市欄的自訂下拉。
+    // 按 ▾ 一律列出全部城市（這是改掉內建 datalist 的原因）；
+    // 在欄位裡打字才會跟著過濾；清單外點一下就收起來。
+    (function () {
+      const wrap = document.getElementById('cityCombo');
+      if (!wrap) return;
+      const input = document.getElementById('city');
+      const toggle = document.getElementById('cityToggle');
+      const list = document.getElementById('cityList');
+      const source = Array.from(
+        document.querySelectorAll('#cities option'),
+        (o) => ({ name: o.value, note: o.getAttribute('label') || '' })
+      );
+      if (!source.length) { toggle.hidden = true; return; }
+
+      // 內建選單會跟自訂選單疊在一起，所以 JS 一跑起來就把它關掉
+      input.removeAttribute('list');
+      let at = -1;
+      let showingAll = false;
+
+      const render = (filter) => {
+        const q = (filter || '').trim().toLowerCase();
+        const hits = q ? source.filter((c) => c.name.toLowerCase().includes(q)) : source;
+        list.innerHTML = '';
+        showingAll = !q;
+        if (!hits.length) {
+          const li = document.createElement('li');
+          li.className = 'none';
+          li.textContent = '清單裡沒有這個城市，直接輸入也可以';
+          list.appendChild(li);
+          at = -1;
+          return;
+        }
+        hits.forEach((c) => {
+          const li = document.createElement('li');
+          li.setAttribute('role', 'option');
+          li.dataset.name = c.name;
+          const n = document.createElement('span');
+          n.textContent = c.name;
+          li.appendChild(n);
+          if (c.note) {
+            const note = document.createElement('small');
+            note.textContent = c.note;
+            li.appendChild(note);
+          }
+          list.appendChild(li);
+        });
+        at = -1;
+      };
+
+      const open = (filter) => {
+        render(filter);
+        list.hidden = false;
+        wrap.classList.add('open');
+        input.setAttribute('aria-expanded', 'true');
+      };
+      const close = () => {
+        list.hidden = true;
+        wrap.classList.remove('open');
+        input.setAttribute('aria-expanded', 'false');
+        at = -1;
+      };
+      const pick = (li) => {
+        if (!li || !li.dataset.name) return;
+        input.value = li.dataset.name;
+        close();
+      };
+      const move = (step) => {
+        const items = list.querySelectorAll('li[data-name]');
+        if (!items.length) return;
+        if (at >= 0 && items[at]) items[at].classList.remove('on');
+        at = (at + step + items.length) % items.length;
+        items[at].classList.add('on');
+        items[at].scrollIntoView({ block: 'nearest' });
+      };
+
+      // ▾ 的規則：已經在列「全部」就收起來，其他情況一律列出全部。
+      // 不能單純寫成「開著就關、關著就開」—— 打了幾個字之後清單是過濾過的，
+      // 這時按 ▾ 想看的是完整清單，不是把它關掉。
+      toggle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (!list.hidden && showingAll) { close(); return; }
+        open('');
+        input.focus();
+      });
+      input.addEventListener('input', () => open(input.value));
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (list.hidden) open(''); else move(1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!list.hidden) move(-1);
+        } else if (e.key === 'Enter') {
+          if (!list.hidden && at >= 0) {
+            e.preventDefault();
+            pick(list.querySelectorAll('li[data-name]')[at]);
+          } else {
+            close();
+          }
+        } else if (e.key === 'Escape') {
+          close();
+        }
+      });
+      list.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        pick(e.target.closest('li'));
+      });
+      document.addEventListener('mousedown', (e) => {
+        if (!wrap.contains(e.target)) close();
+      });
+      input.addEventListener('blur', () => setTimeout(close, 120));
+    })();
+
+    // 左右箭頭。滑到頭的時候要變灰，不然會一直按卻沒反應。
+    // 卡片全部放得下的時候（例如只有三筆、螢幕又夠寬），箭頭和
+    // 「往右滑看更多」整個收起來 —— 擺著一組按不動的箭頭只會讓人困惑。
     document.querySelectorAll('.carousel').forEach((wrap) => {
       const track = wrap.querySelector('.track');
       const prev = wrap.querySelector('.prev');
       const next = wrap.querySelector('.next');
+      const nav = wrap.querySelector('.cnav');
+      const note = wrap.querySelector('.cnote');
       const step = () => Math.max(track.clientWidth * 0.8, 290);
       const sync = () => {
+        const scrollable = track.scrollWidth - track.clientWidth > 4;
+        nav.hidden = !scrollable;
+        if (note) note.hidden = !scrollable;
         const atStart = track.scrollLeft <= 4;
         const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
         prev.disabled = atStart;

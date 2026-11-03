@@ -100,8 +100,9 @@ const { chromium } = require('playwright');
   console.log('\n--- 目的地沒有下拉，城市有 ---');
   check(await page.getAttribute('#destination', 'list') === null,
         '目的地欄位沒有下拉（直接打字就好）');
-  check(await page.getAttribute('#city', 'list') === 'cities',
-        '城市欄位有下拉');
+  check(await page.getAttribute('#city', 'list') === null,
+        '城市欄位改用自訂下拉（JS 已把瀏覽器內建的 datalist 關掉）');
+  check(await page.locator('#cityToggle').count() === 1, '城市欄位右邊有 ▾ 展開鈕');
   const cityOptions = await page.locator('#cities option').count();
   check(cityOptions > 50, `城市選單有 ${cityOptions} 個建議（展覽與商務常去的城市）`);
   check(await page.locator('#cities option[value="Sydney"]').count() === 1,
@@ -154,7 +155,37 @@ const { chromium } = require('playwright');
   check((await compare.getAttribute('href')).startsWith('https://www.google.com/travel/search?q='),
         '比價連結指向 Google Hotels');
 
-  console.log('\n--- 超過 6 筆改用輪播 ---');
+  console.log('\n--- 城市下拉：欄位有字的時候也要列出全部（你回報的問題）---');
+  await page.fill('#city', 'Sydney');
+  await page.click('#cityToggle');
+  await page.waitForTimeout(150);
+  check(!(await page.locator('#cityList').isHidden()), '按 ▾ 會打開清單');
+  const openedAll = await page.locator('#cityList li[data-name]').count();
+  check(openedAll > 50,
+        `欄位裡已經填著 Sydney，按 ▾ 仍然列出全部 ${openedAll} 個城市`);
+  check(await page.locator('#cityList li[data-name="Osaka"]').count() === 1,
+        '清單裡找得到跟 Sydney 無關的城市（確認不是只列開頭吻合的）');
+
+  // 打字才過濾
+  await page.fill('#city', 'Syd');
+  await page.waitForTimeout(150);
+  const typed = await page.locator('#cityList li[data-name]').count();
+  check(typed > 0 && typed < openedAll, `打字會過濾（剩 ${typed} 筆）`);
+
+  // 點一下就選起來
+  await page.locator('#cityList li[data-name]').first().click();
+  await page.waitForTimeout(150);
+  check(await page.inputValue('#city') === 'Sydney', '點清單項目會填進欄位');
+  check(await page.locator('#cityList').isHidden(), '選完清單會收起來');
+
+  // 再按一次 ▾ 應該要能換成別的城市，而不是只剩 Sydney 一筆
+  await page.click('#cityToggle');
+  await page.waitForTimeout(150);
+  check(await page.locator('#cityList li[data-name]').count() === openedAll,
+        '選完之後再按 ▾，清單還是完整的（可以直接改選別的城市）');
+  await page.keyboard.press('Escape');
+
+  console.log('\n--- 三筆以上改成橫向捲動 ---');
   await page.goto('http://127.0.0.1:5000/?demo=1');
   await page.waitForLoadState('load');
   await page.fill('#check_in', '2027-03-10');
@@ -165,12 +196,22 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(300);
 
   const carousels = page.locator('.carousel');
-  check(await carousels.count() >= 1, '有區塊超過 6 筆，改用輪播');
-  check(await page.locator('.grid').count() >= 1, '不到 6 筆的區塊仍然用格線');
+  check(await carousels.count() >= 2, '三筆以上的區塊都改成橫向捲動');
+
+  // 三筆在寬螢幕上其實放得下 —— 那就不該擺一組按不動的箭頭
+  const small = carousels.last();
+  check(await small.locator('.card').count() === 3, '最後一區剛好三筆');
+  check(await small.locator('.cnav').isHidden(),
+        '三筆在這個寬度放得下，箭頭自動收起來');
+  const cardW = await small.locator('.card').first()
+    .evaluate(el => el.getBoundingClientRect().width);
+  check(cardW > 300, `放得下的時候卡片會撐滿整列（寬 ${Math.round(cardW)}px，不是乾乾的 290px）`);
 
   const track = carousels.first().locator('.track');
   const prev = carousels.first().locator('.prev');
   const next = carousels.first().locator('.next');
+  check(!(await carousels.first().locator('.cnav').isHidden()),
+        '放不下的區塊才顯示箭頭');
   check(await prev.isDisabled(), '剛載入時「上一批」是停用的（已經在最左邊）');
   check(!(await next.isDisabled()), '「下一批」可以按');
 
