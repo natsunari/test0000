@@ -177,18 +177,35 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
 
 def _area_from_address(address: dict | None) -> str | None:
     """
-    把 Nominatim 的地址細節組成「城市, 國家」這種適合查飯店的字串。
+    把 Nominatim 的地址細節組成適合查飯店的地區字串。
 
-    為什麼不用完整地址：Google Hotels 吃的是地區，給它門牌號碼反而查不好。
-    為什麼不用使用者輸入：那可能是座標，Google 看不懂就會回傳無關地區的結果。
+    盡量帶上「區」這一層，不要只給城市 ——
+    Google Hotels 一次只回二十筆左右，查「Koto, Japan」會散在整個江東區，
+    查「Ariake, Koto, Japan」才會集中在展館周圍。
+    實測 13 個展館時，座標那一欄有一半退到城市層級就是這個問題。
+
+    為什麼不用完整地址：Google 吃的是地區，給它門牌號碼反而查不好。
+    為什麼不用使用者輸入：那可能是座標，Google 看不懂就會跑到別的地區。
     """
     if not address:
         return None
+    local = next((address[k] for k in
+                  ("suburb", "neighbourhood", "quarter", "city_district",
+                   "borough", "city_block")
+                  if address.get(k)), None)
     city = next((address[k] for k in
-                 ("city", "town", "village", "municipality", "suburb", "county")
+                 ("city", "town", "village", "municipality", "county")
                  if address.get(k)), None)
     country = address.get("country")
-    parts = [p for p in (city, country) if p]
+
+    parts: list[str] = []
+    for value in (local, city, country):
+        if not value:
+            continue
+        # 區名和市名有時候一樣（例如新加坡），不要重複
+        if any(value.strip().lower() == seen.strip().lower() for seen in parts):
+            continue
+        parts.append(value)
     return ", ".join(parts) if parts else None
 
 

@@ -84,6 +84,19 @@ check(geocode._area_from_address(
 check(geocode._area_from_address(
     {"town": "Urayasu", "country": "Japan"}) == "Urayasu, Japan",
     "沒有 city 時退而用 town")
+
+# 盡量帶上「區」這一層。Google 一次只回二十筆，查整個城市會讓
+# 展館附近的飯店被擠掉 —— 實測 13 個展館時座標有一半退到城市層級。
+check(geocode._area_from_address(
+    {"suburb": "Ariake", "city": "Koto", "country": "Japan"})
+    == "Ariake, Koto, Japan", "有 suburb 就帶上，不要只給城市")
+check(geocode._area_from_address(
+    {"neighbourhood": "Darling Harbour", "city": "Sydney",
+     "country": "Australia"}) == "Darling Harbour, Sydney, Australia",
+    "neighbourhood 同樣會帶上")
+check(geocode._area_from_address(
+    {"suburb": "Singapore", "city": "Singapore", "country": "Singapore"})
+    == "Singapore", "區名與市名相同時不重複")
 check(geocode._area_from_address({"country": "Japan"}) == "Japan",
       "只有國家也能用")
 check(geocode._area_from_address({}) is None, "完全沒有資料時回傳 None")
