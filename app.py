@@ -15,6 +15,7 @@ from urllib.parse import quote_plus
 
 from flask import Flask, render_template, request
 
+import auth
 import fx
 import geocode
 import rules
@@ -22,6 +23,10 @@ import search
 import settings
 
 app = Flask(__name__)
+
+# 部署到網路上時才會生效（靠環境變數 APP_PASSWORD 開關）。
+# 自己電腦上跑不會被問密碼。
+auth.protect(app)
 
 # 示範模式固定用東京國際展示場，因為內建測試資料就是在那裡查的
 DEMO_PLACE = geocode.Place(

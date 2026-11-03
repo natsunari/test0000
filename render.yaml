@@ -1,0 +1,20 @@
+# Render 的部署設定。放在這裡之後，Render 會自動讀，不用在網頁上一欄欄填。
+#
+# 兩個環境變數要自己在 Render 網頁上填（故意不寫在這裡，
+# 這個檔案會進 GitHub，金鑰和密碼寫進去等於公開）：
+#   SERPAPI_KEY   你的 SerpApi 金鑰
+#   APP_PASSWORD  自己取一個密碼，給主管用的
+services:
+  - type: web
+    name: hotel-search
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python serve.py
+    envVars:
+      - key: SERPAPI_KEY
+        sync: false        # sync:false = 不寫在檔案裡，到網頁上手動填
+      - key: APP_PASSWORD
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.13"

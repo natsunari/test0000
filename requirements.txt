@@ -3,3 +3,5 @@
 # 比鎖死單一版本更不容易在新版 Python 上出問題。
 Flask>=3.1,<4
 requests>=2.32,<3
+# 正式伺服器（部署用）。純 Python，Windows 也能跑；gunicorn 不行。
+waitress>=3.0,<4
