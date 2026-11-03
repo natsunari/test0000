@@ -446,6 +446,10 @@
         {%- if place.landmark and hotel_query == place.landmark %}（由目的地解析出的地標）
         {%- elif place.area and hotel_query == place.area %}（只查到城市，結果會散得比較開）
         {%- else %}（你輸入的文字）{% endif %}<br>
+      {%- if retried_from %}
+      <span style="color:var(--warn)">先用「<b>{{ retried_from }}</b>」查，Google Hotels 回 0 筆
+        —— 那通常是指到某一間特定飯店了，已自動改用上面的地名重查（多花一次額度）。</span><br>
+      {%- endif %}
       資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}
       {%- if pages_fetched and source != '快取' %}（抓了 {{ pages_fetched }} 頁，
         用掉 {{ pages_fetched }} 次 API 額度）{% endif %}；共 {{ total }} 筆住宿
@@ -544,6 +548,21 @@
 
     {% if not clear and not needs_check %}
       <div class="diagnose">
+      {% if not total %}
+        {# 一筆都沒拿到。這跟「拿到了但全被規則刷掉」是完全不同的問題，
+           印一張空的規則統計表只會讓人以為是自己的限制設太嚴。 #}
+        <h3>Google Hotels 對「{{ hotel_query }}」查不到任何住宿</h3>
+        <p>一筆都沒拿到，所以這跟你的預算、交通費設定無關 —— 是查詢的地名本身有問題。
+          常見的三個原因：</p>
+        <ul>
+          <li>這個地名指到<b>某一間特定飯店</b>。Google 會理解成「找這間飯店」而不是
+            「找這附近的飯店」，回 0 筆。改填展館名稱或城市。</li>
+          <li>日期太遠或太近。試試改成<b>一個月後</b>的日期。</li>
+          <li>這個地名 Google 不認得。改用英文的城市名試一次，確認得到結果之後再縮小範圍。</li>
+        </ul>
+        <p class="hintrow">目的地欄位本身是查到的（{{ place.label }}），
+          所以不是 OpenStreetMap 的問題，是送去 Google Hotels 的那串字。</p>
+      {% else %}
         <h3>沒有任何飯店通過篩選</h3>
         <p>這 {{ total }} 筆分別卡在哪一條規則：</p>
         <ul>
@@ -559,6 +578,7 @@
         <p class="hintrow">常見的調整方向：
           房價卡住就改上下限；交通費卡住多半是這個地區沒填費率、用了偏高的保守估計，
           或是目的地周圍真的沒有夠近的飯店。</p>
+      {% endif %}
       </div>
     {% endif %}
 

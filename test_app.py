@@ -242,6 +242,74 @@ check(covered >= 45,
 names = [o["name"] for o in app._city_options(config)]
 check(names == sorted(names, key=str.casefold), "清單由 A 到 Z 排序")
 
+print("\n--- 查到 0 筆時會改用「城市, 國家」重查（你回報的 0 筆問題）---")
+# 實際踩過：貼 Darling Harbour 的座標，地名解析成某間飯店，Google Hotels 回 0 筆。
+# 研討會本來就常辦在飯店裡，直接打飯店名也是合理輸入，不該換來一片空白。
+import settings as _settings
+
+_place = app.geocode.Place(-33.8723, 151.19896,
+                           "Sofitel Sydney Darling Harbour, Sydney, Australia",
+                           "OpenStreetMap", "au", "Sydney, Australia", None)
+_form = {
+    "destination": "Sofitel Sydney Darling Harbour", "city": "Sydney",
+    "check_in": "2027-02-01", "check_out": "2027-02-06", "mode": "refresh",
+    "action": "search",
+    "hotel_min_per_night_usd": "0", "hotel_max_per_night_usd": "500",
+    "taxi_max_one_way_usd": "20", "taxi_max_per_day_usd": "40",
+    "require_availability": "on",
+    "assume_air_conditioning": "on", "assume_elevator": "on",
+}
+_hotel = {
+    "name": "Test Hotel Sydney", "type": "hotel",
+    "gps_coordinates": {"latitude": -33.8730, "longitude": 151.2000},
+    "rate_per_night": {"extracted_display_price": 200},
+    "amenities": ["Air conditioning", "Elevator"],
+}
+
+
+def _run_search(responses):
+    """responses: 查詢字串 -> properties。回傳 (頁面 HTML, 實際查過的字串)。"""
+    asked = []
+
+    def fake_search(query, *a, **k):
+        asked.append(query)
+        return ({"properties": responses.get(query, []),
+                 "_pages_fetched": 1}, "SerpApi")
+
+    real_search, real_resolve = app.search.search_hotels, app.geocode.resolve
+    real_save, real_venue = _settings.save, app.geocode.save_venue
+    app.search.search_hotels = fake_search
+    app.geocode.resolve = lambda *a, **k: _place
+    _settings.save = lambda *a, **k: None       # 不要碰使用者的 settings.json
+    app.geocode.save_venue = lambda *a, **k: None
+    try:
+        with app.app.test_client() as client:
+            html = client.post("/", data=_form).get_data(as_text=True)
+    finally:
+        app.search.search_hotels, app.geocode.resolve = real_search, real_resolve
+        _settings.save, app.geocode.save_venue = real_save, real_venue
+    return html, asked
+
+
+html, asked = _run_search({"Sydney, Australia": [_hotel]})
+check(asked == ["Sofitel Sydney Darling Harbour", "Sydney, Australia"],
+      f"第一次查 0 筆就改用城市重查（實際查了 {asked}）")
+check("Test Hotel Sydney" in html, "重查拿到的飯店有顯示出來")
+check("已自動改用上面的地名重查" in html,
+      "畫面說明有重查過，而不是默默多花一次額度")
+
+html, asked = _run_search({"Sofitel Sydney Darling Harbour": [_hotel]})
+check(asked == ["Sofitel Sydney Darling Harbour"],
+      "第一次就查到東西的話不會多查一次（不浪費額度）")
+
+html, asked = _run_search({})
+check(asked == ["Sofitel Sydney Darling Harbour", "Sydney, Australia"],
+      "兩次都 0 筆時不會再無限重試")
+check("查不到任何住宿" in html,
+      "兩次都 0 筆時說明是「地名查不到住宿」，不是規則太嚴")
+check("分別卡在哪一條規則" not in html,
+      "0 筆時不會印出一張空的規則統計表")
+
 print(f"\n{'=' * 56}")
 print(f"OK —— {passed} 項檢查全部通過")
 print("=" * 56)

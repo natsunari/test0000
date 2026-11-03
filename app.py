@@ -285,19 +285,37 @@ def home():
         return page(form=form, error=str(exc), config=config)
 
     # ---- 2. 取得飯店資料 ----
+    retried_from = None          # 第一次查 0 筆、改用城市重查時，記下原本的字串
     try:
         if is_demo:
             data, source = search.load_fixture(), "示範資料"
             hotel_query = "Tokyo Big Sight"
         else:
             hotel_query = hotel_search_query(form["destination"], place)
-            data, source = search.search_hotels(
-                hotel_query, form["check_in"], form["check_out"],
-                use_cache=form["mode"] != MODE_REFRESH,
-                # 上限先送給 Google，超標的就不會占掉那 20 個名額
-                max_price=config["budget"]["hotel_max_per_night_usd"],
-                pages=config.get("search", {}).get("pages", 2),
-            )
+            def run(query):
+                return search.search_hotels(
+                    query, form["check_in"], form["check_out"],
+                    use_cache=form["mode"] != MODE_REFRESH,
+                    # 上限先送給 Google，超標的就不會占掉那 20 個名額
+                    max_price=config["budget"]["hotel_max_per_night_usd"],
+                    pages=config.get("search", {}).get("pages", 2),
+                )
+
+            data, source = run(hotel_query)
+
+            # 查到 0 筆就退一步用「城市, 國家」再查一次。
+            #
+            # 會發生在查詢字串指到某一間特定飯店的時候 —— 問 Google Hotels
+            # 「Sofitel Sydney Darling Harbour 附近有哪些飯店」，它回 0 筆。
+            # 研討會本來就常常辦在飯店裡，使用者直接打飯店名是很合理的輸入，
+            # 不該換來一片空白。多花一次額度，但只在完全查不到的時候才花。
+            if (not data.get("properties") and place.area
+                    and hotel_query != place.area):
+                retry_data, retry_source = run(place.area)
+                if retry_data.get("properties"):
+                    retried_from = hotel_query
+                    data, source = retry_data, retry_source
+                    hotel_query = place.area
     except (search.MissingKey, search.SearchFailed) as exc:
         return page(form=form, error=str(exc), config=config)
 
@@ -402,6 +420,7 @@ def home():
         pages_fetched=data.get("_pages_fetched"),
         hidden_types=hidden_types, hidden_dorms=hidden_dorms,
         breakdown=breakdown.most_common(), price_range=price_range, hotel_query=hotel_query,
+        retried_from=retried_from,
         far_warning=far_warning, city_mismatch=city_mismatch,
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],

@@ -37,7 +37,8 @@ VENUES_PATH = Path(__file__).parent / "venues.json"
 
 # 已存地點的格式版本。解析邏輯改動（例如開始排除日常店家）之後要加一，
 # 舊的紀錄才會自動重查 —— 否則一個錯誤的地標會永遠卡在使用者的檔案裡。
-VENUE_SCHEMA = 2
+#   2 → 3：住宿不再當地標（存過的座標可能記著某間飯店的名字）
+VENUE_SCHEMA = 3
 
 # 遵守每秒 1 次的限制
 _MIN_INTERVAL_SECONDS = 1.1
@@ -55,6 +56,20 @@ _DMS_RE = re.compile(
     (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([NSns])
     \s*[,\s]\s*
     (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([EWew])
+    \s*$""",
+    re.VERBOSE,
+)
+
+
+# 十進位度數加上半球字母：33.87230°S 151.19896°E
+# Google Maps 的地點資訊面板就是這樣顯示的，使用者直接複製下來會是這個樣子。
+# 沒有這一條的話，整串字會被當成地名送去查，結果不可預測。
+# 度數符號可有可無，字母放前面（S33.87230 E151.19896）也接受。
+_DEC_HEMI_RE = re.compile(
+    r"""^\s*
+    (?:([NSns])\s*)? (\d{1,3}(?:\.\d+)?) \s*[°d]?\s* (?(1)|([NSns]))
+    \s*[,\s]\s*
+    (?:([EWew])\s*)? (\d{1,3}(?:\.\d+)?) \s*[°d]?\s* (?(4)|([EWew]))
     \s*$""",
     re.VERBOSE,
 )
@@ -166,6 +181,19 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
             return round(lat, 6), round(lon, 6)
         return None
 
+    hemi = _DEC_HEMI_RE.match(text)
+    if hemi:
+        ns = hemi.group(1) or hemi.group(3)
+        ew = hemi.group(4) or hemi.group(6)
+        lat, lon = float(hemi.group(2)), float(hemi.group(5))
+        if ns.upper() == "S":
+            lat = -lat
+        if ew.upper() == "W":
+            lon = -lon
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            return lat, lon
+        return None
+
     m = _COORD_RE.match(text)
     if not m:
         return None
@@ -227,8 +255,25 @@ _LANDMARK_CLASSES = {
     "amenity",      # 展覽中心、大學、醫院…（底下再用 type 過濾日常店家）
 }
 
+# 住宿本身永遠不能當地標。
+#
+# 為什麼：反查座標時，Nominatim 回的是「離這個點最近的有名字的東西」。
+# 市中心的座標常常就落在某間飯店上 —— 例如雪梨 Darling Harbour 的座標
+# 反查回來是「Sofitel Sydney Darling Harbour」。拿一間特定飯店的名字去問
+# Google Hotels「這附近有哪些飯店」，回來是 0 筆，整頁空白。
+#
+# 擋掉之後會退回「城市, 國家」。查詢範圍是變大了，但距離仍然是拿
+# 使用者給的座標逐間實算，真正在篩的是交通費上限，不是這個查詢字串。
+_ACCOMMODATION_TYPES = {
+    "hotel", "motel", "hostel", "guest_house", "guesthouse",
+    "apartment", "apartments", "chalet", "resort",
+    "alpine_hut", "wilderness_hut", "bed_and_breakfast",
+    "love_hotel", "capsule_hotel", "holiday_cottage",
+    "camp_site", "caravan_site", "camp_pitch",
+}
+
 # class=amenity 底下仍然有大量日常店家，要再篩一層
-_NOT_A_LANDMARK = {
+_NOT_A_LANDMARK = _ACCOMMODATION_TYPES | {
     "restaurant", "cafe", "fast_food", "bar", "pub", "bakery", "ice_cream",
     "food_court", "biergarten",
     "bank", "atm", "pharmacy", "clinic", "dentist", "doctors", "veterinary",

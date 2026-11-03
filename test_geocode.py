@@ -66,6 +66,26 @@ for text in [
 ]:
     check(geocode.parse_coordinates(text) is None, f"「{text}」不會被誤判為座標")
 
+print("\n--- 十進位度數加半球字母（你實際貼的格式）---")
+# 你貼的是 33.87230°S 151.19896°E。這個格式原本不被認得，整串字會被當成
+# 地名送出去查，南半球的緯度還會掉成正的 —— 查到的會是完全不同的地方。
+for text, expected, label in [
+    ("33.87230°S 151.19896°E", (-33.8723, 151.19896), "南緯東經，用空白分隔"),
+    ("33.87230°S, 151.19896°E", (-33.8723, 151.19896), "南緯東經，用逗號分隔"),
+    ("35.6298°N 139.7954°E", (35.6298, 139.7954), "北緯東經"),
+    ("37.7749°N 122.4194°W", (37.7749, -122.4194), "西經要變負的"),
+    ("S33.87230 E151.19896", (-33.8723, 151.19896), "字母放前面"),
+    ("33.87230 S 151.19896 E", (-33.8723, 151.19896), "沒有度數符號"),
+]:
+    check(geocode.parse_coordinates(text) == expected,
+          f"{label}：「{text}」→ {geocode.parse_coordinates(text)}")
+
+check(geocode.parse_coordinates("33.87230°S 151.19896°E")
+      == geocode.parse_coordinates("-33.87230, 151.19896"),
+      "跟一般寫法解析出同一組座標")
+check(geocode.parse_coordinates("91.0°N 10°E") is None,
+      "半球格式一樣要檢查範圍（緯度 91 不是座標）")
+
 print("\n--- 超出範圍的數字不算座標 ---")
 check(geocode.parse_coordinates("91, 139") is None, "緯度 91 超過 90 → 不是座標")
 check(geocode.parse_coordinates("35, 181") is None, "經度 181 超過 180 → 不是座標")
@@ -172,12 +192,37 @@ for data, address, expected, label in [
      {}, "Taipei 101", "觀光地標"),
     ({"name": "Tokyo Big Sight", "class": "amenity",
       "type": "exhibition_centre"}, {}, "Tokyo Big Sight", "展覽館"),
-    ({"name": "Sofitel Sydney", "class": "tourism", "type": "hotel"},
-     {}, "Sofitel Sydney", "飯店"),
     ({}, {"building": "International Convention Centre"},
      "International Convention Centre", "只有 building 欄位"),
 ]:
     got = geocode._poi_name(data, address)
+    check(got == expected, f"{label} → {got}")
+
+print("\n--- 住宿本身不能當地標（你回報的 0 筆問題）---")
+# 實際踩過：貼 Darling Harbour 的座標 33.87230°S 151.19896°E，反查回來是
+# 「Sofitel Sydney Darling Harbour」—— 一間飯店。拿一間特定飯店的名字去問
+# Google Hotels「這附近有什麼飯店」，回 0 筆，整頁空白。
+for data, expected, label in [
+    # Nominatim 這筆真的沒有 class 欄位，只有 type=hotel，所以不能只靠 class 判斷
+    ({"name": "Sofitel Sydney Darling Harbour", "type": "hotel"},
+     None, "飯店（回應裡沒有 class 欄位）"),
+    ({"name": "Sofitel Sydney", "class": "tourism", "type": "hotel"},
+     None, "飯店"),
+    ({"name": "Dormy Inn", "class": "tourism", "type": "hotel"}, None, "商務飯店"),
+    ({"name": "YHA Sydney", "class": "tourism", "type": "hostel"}, None, "青年旅館"),
+    ({"name": "Someone's Place", "class": "tourism", "type": "guest_house"},
+     None, "民宿"),
+    ({"name": "Big4 Park", "class": "tourism", "type": "caravan_site"},
+     None, "露營地"),
+    # 會展與景點不受影響
+    ({"name": "ICC Sydney", "class": "amenity", "type": "convention_centre"},
+     "ICC Sydney", "會議中心（不受影響）"),
+    ({"name": "Taipei 101", "class": "tourism", "type": "attraction"},
+     "Taipei 101", "觀光地標（不受影響）"),
+    ({"name": "Tokyo Big Sight", "class": "amenity", "type": "exhibition_centre"},
+     "Tokyo Big Sight", "展覽館（不受影響）"),
+]:
+    got = geocode._poi_name(data, {})
     check(got == expected, f"{label} → {got}")
 
 print("\n--- 舊格式的已存地點要整筆重查 ---")
