@@ -10,6 +10,10 @@
 from datetime import date, timedelta
 
 import app
+import fx
+import rules
+
+config = rules.load_config()
 
 passed = 0
 
@@ -132,11 +136,27 @@ check(app.hotel_search_query("Taipei 101", cjk) == "Taipei 101",
 check(app.hotel_search_query("25.0339, 121.5645", cjk) == "Taipei, Taiwan",
       "沒有英文可用時退回城市，而不是送中文給 Google")
 
+print("\n--- 城市欄位和目的地講不同國家時要擋下 ---")
+# 實際踩過：目的地貼了東京的座標、城市欄位填 Beijing，
+# 程式就拿北京費率去算東京的距離，畫面上卻一切看起來正常。
+warn = app.city_mismatch_warning(config, "Beijing", "jp")
+check(warn is not None, "目的地在日本、城市填北京 → 要警告")
+check("Beijing" in warn and "CN" in warn and "JP" in warn,
+      f"訊息講清楚兩邊各是什麼：{warn[:40]}…")
+
+check(app.city_mismatch_warning(config, "Tokyo", "jp") is None,
+      "城市與目的地同國時不警告")
+check(app.city_mismatch_warning(config, "Osaka", "jp") is None,
+      "同一國的不同城市也不算矛盾")
+check(app.city_mismatch_warning(config, None, "jp") is None,
+      "沒填城市時不警告")
+check(app.city_mismatch_warning(config, "Reykjavik", "jp") is None,
+      "城市不在對照表裡（自己打的）時無從比對，不亂警告")
+check(app.city_mismatch_warning(config, "Beijing", None) is None,
+      "目的地國碼不明時不警告")
+
 print("\n--- 費率換匯：當地幣別要換成美金 ---")
 import fx
-import rules
-
-config = rules.load_config()
 
 usd_fare = {"currency": "USD", "base": 3.2, "included_km": 0, "per_km": 2.8}
 got, problem = fx.fare_to_usd(usd_fare)

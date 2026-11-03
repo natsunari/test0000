@@ -116,6 +116,28 @@ def empty_form() -> dict:
 _CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]")
 
 
+def city_mismatch_warning(config: dict, city: str | None,
+                          country_code: str | None) -> str | None:
+    """
+    城市欄位和目的地是不是在講不同的國家。
+
+    實際踩過：目的地貼了東京的座標、城市欄位填 Beijing，
+    程式就拿北京的計程車費率去算東京的距離，而畫面上一切看起來正常。
+    這種矛盾一定要講出來，而且寧可忽略城市欄位，不要用錯的費率。
+
+    城市不在對照表裡（使用者自己打的）時無從比對，回傳 None。
+    """
+    city_country = config.get("ui", {}).get("cities", {}).get(city or "")
+    if not city_country or not country_code:
+        return None
+    if city_country == country_code:
+        return None
+    return (f"城市欄位填的是「{city}」（{city_country.upper()}），"
+            f"但目的地解析出來在 {country_code.upper()}。"
+            f"兩者不一致，已忽略城市欄位改用國家費率 —— "
+            f"請確認目的地或城市是不是填錯了。")
+
+
 def hotel_search_query(destination: str, place) -> str:
     """
     決定要送給 Google Hotels 的查詢字串。
@@ -281,6 +303,14 @@ def home():
 
     # ---- 3. 決定費率：城市 → 國家 → 預設，並換算成美金 ----
     city = DEMO_CITY if is_demo else (form["city"].strip() or None)
+
+    # 城市欄位和目的地可能講的是不同國家（例如目的地貼了東京的座標，
+    # 城市卻填 Beijing）。那時候用北京的費率去算東京的距離完全沒有意義，
+    # 而且不講的話畫面看起來一切正常。寧可忽略城市、退回國家費率。
+    city_mismatch = city_mismatch_warning(config, city, place.country_code)
+    if city_mismatch:
+        city = None
+
     raw_fare, fare_source = rules.resolve_fare(config, city, place.country_code)
     fare_used, fare_problem = fx.fare_to_usd(raw_fare)
     if fare_problem:
@@ -364,7 +394,7 @@ def home():
         pages_fetched=data.get("_pages_fetched"),
         hidden_types=hidden_types, hidden_dorms=hidden_dorms,
         breakdown=breakdown.most_common(), price_range=price_range, hotel_query=hotel_query,
-        far_warning=far_warning,
+        far_warning=far_warning, city_mismatch=city_mismatch,
         clear=[v for v in verdicts if v.passed and not v.to_confirm],
         needs_check=[v for v in verdicts if v.passed and v.to_confirm],
         rejected=[v for v in verdicts if not v.passed],
