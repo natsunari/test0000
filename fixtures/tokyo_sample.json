@@ -1,6 +1,9 @@
 {
-  "_說明": "示範／測試用資料。取自 2026-11-02 一次真實的 SerpApi 查詢（Tokyo Big Sight，2027-03-10 至 03-12），縮減為 9 筆並保留各種代表性狀況。這個檔不連網，用來驗證流程與介面，不消耗 API 額度。",
-  "search_metadata": {"status": "Success", "_note": "fixture"},
+  "_說明": "示範／測試用資料。取自 2026-11-02 一次真實的 SerpApi 查詢（Tokyo Big Sight，2027-03-10 至 03-12），縮減為 9 筆並保留各種代表性狀況。這個檔不連網，用來驗證流程與介面，不消耗 API 額度。（後續補了 6 筆，讓「超過 6 筆改用輪播」的行為測得到）",
+  "search_metadata": {
+    "status": "Success",
+    "_note": "fixture"
+  },
   "search_parameters": {
     "engine": "google_hotels",
     "q": "Tokyo Big Sight",
@@ -12,17 +15,47 @@
     {
       "name": "Tokyo Bay Ariake Washington Hotel",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$121", "extracted_display_price": 121},
-      "total_rate": {"display_price": "$242", "extracted_display_price": 242},
-      "gps_coordinates": {"latitude": 35.6326198, "longitude": 139.7933536},
+      "rate_per_night": {
+        "display_price": "$121",
+        "extracted_display_price": 121
+      },
+      "total_rate": {
+        "display_price": "$242",
+        "extracted_display_price": 242
+      },
+      "gps_coordinates": {
+        "latitude": 35.6326198,
+        "longitude": 139.7933536
+      },
       "overall_rating": 3.8,
       "reviews": 4213,
       "hotel_class": "3-star hotel",
       "extracted_hotel_class": 3,
-      "amenities": ["Free Wi-Fi", "Restaurant", "Accessible", "Kid-friendly"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
       "nearby_places": [
-        {"name": "Tokyo Big Sight Higashitō", "transportations": [{"type": "Walking", "duration": "4 min"}]},
-        {"name": "Haneda Airport", "transportations": [{"type": "Taxi", "duration": "18 min"}]}
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
       ],
       "link": "http://washington-hotels.jp/ariake/",
       "property_token": "FIXTURE_washington"
@@ -30,14 +63,34 @@
     {
       "name": "Sotetsu Grand Fresa Tokyo-Bay Ariake",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$133", "extracted_display_price": 133},
-      "gps_coordinates": {"latitude": 35.6323868, "longitude": 139.7895918},
+      "rate_per_night": {
+        "display_price": "$133",
+        "extracted_display_price": 133
+      },
+      "gps_coordinates": {
+        "latitude": 35.6323868,
+        "longitude": 139.7895918
+      },
       "overall_rating": 4.1,
       "reviews": 2100,
       "extracted_hotel_class": 3,
-      "amenities": ["Free Wi-Fi", "Restaurant", "Air conditioning", "Elevator", "Free breakfast"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast"
+      ],
       "nearby_places": [
-        {"name": "Kokusai-tenjijo Station", "transportations": [{"type": "Walking", "duration": "6 min"}]}
+        {
+          "name": "Kokusai-tenjijo Station",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "6 min"
+            }
+          ]
+        }
       ],
       "link": "https://example.invalid/sotetsu",
       "property_token": "FIXTURE_sotetsu"
@@ -45,14 +98,32 @@
     {
       "name": "APA Hotel & Resort Tokyo Bay Shiomi",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$70", "extracted_display_price": 70},
-      "gps_coordinates": {"latitude": 35.6578741, "longitude": 139.8189755},
+      "rate_per_night": {
+        "display_price": "$70",
+        "extracted_display_price": 70
+      },
+      "gps_coordinates": {
+        "latitude": 35.6578741,
+        "longitude": 139.8189755
+      },
       "overall_rating": 3.9,
       "reviews": 5600,
       "extracted_hotel_class": 3,
-      "amenities": ["Free Wi-Fi", "Public bath", "Restaurant"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Public bath",
+        "Restaurant"
+      ],
       "nearby_places": [
-        {"name": "Shiomi Station", "transportations": [{"type": "Walking", "duration": "3 min"}]}
+        {
+          "name": "Shiomi Station",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "3 min"
+            }
+          ]
+        }
       ],
       "link": "https://example.invalid/apa",
       "property_token": "FIXTURE_apa"
@@ -60,67 +131,265 @@
     {
       "name": "Tokyo East Side Hotel Kaie",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$81", "extracted_display_price": 81},
-      "gps_coordinates": {"latitude": 35.6588637, "longitude": 139.8179957},
+      "rate_per_night": {
+        "display_price": "$81",
+        "extracted_display_price": 81
+      },
+      "gps_coordinates": {
+        "latitude": 35.6588637,
+        "longitude": 139.8179957
+      },
       "overall_rating": 4.0,
       "reviews": 1800,
       "extracted_hotel_class": 3,
-      "amenities": ["Free Wi-Fi", "Elevator"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Elevator"
+      ],
       "link": "https://example.invalid/kaie",
       "property_token": "FIXTURE_kaie"
     },
     {
       "name": "La Vista Tokyo Bay",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$100", "extracted_display_price": 100},
-      "gps_coordinates": {"latitude": 35.6466503, "longitude": 139.7840088},
+      "rate_per_night": {
+        "display_price": "$100",
+        "extracted_display_price": 100
+      },
+      "gps_coordinates": {
+        "latitude": 35.6466503,
+        "longitude": 139.7840088
+      },
       "overall_rating": 4.3,
       "reviews": 980,
       "extracted_hotel_class": 4,
-      "amenities": ["Free Wi-Fi", "Onsen", "Public bath", "Restaurant"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Onsen",
+        "Public bath",
+        "Restaurant"
+      ],
       "link": "https://example.invalid/lavista",
       "property_token": "FIXTURE_lavista"
     },
     {
       "name": "Ariake Luxury Suites (超出預算，測試用)",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$320", "extracted_display_price": 320},
-      "gps_coordinates": {"latitude": 35.6330000, "longitude": 139.7940000},
+      "rate_per_night": {
+        "display_price": "$320",
+        "extracted_display_price": 320
+      },
+      "gps_coordinates": {
+        "latitude": 35.633,
+        "longitude": 139.794
+      },
       "overall_rating": 4.7,
       "extracted_hotel_class": 5,
-      "amenities": ["Free Wi-Fi", "Air conditioning", "Elevator", "Free breakfast"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast"
+      ],
       "link": "https://example.invalid/luxury",
       "property_token": "FIXTURE_overbudget"
     },
     {
       "name": "Chiba Far Away Hotel (距離過遠，測試用)",
       "type": "hotel",
-      "rate_per_night": {"display_price": "$55", "extracted_display_price": 55},
-      "gps_coordinates": {"latitude": 35.8500000, "longitude": 140.0500000},
+      "rate_per_night": {
+        "display_price": "$55",
+        "extracted_display_price": 55
+      },
+      "gps_coordinates": {
+        "latitude": 35.85,
+        "longitude": 140.05
+      },
       "overall_rating": 3.5,
       "extracted_hotel_class": 2,
-      "amenities": ["Free Wi-Fi", "Air conditioning", "Elevator"],
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator"
+      ],
       "link": "https://example.invalid/faraway",
       "property_token": "FIXTURE_faraway"
     },
     {
       "name": "Tokyo Bay Vacation Apartment",
       "type": "vacation rental",
-      "rate_per_night": {"display_price": "$95", "extracted_display_price": 95},
-      "gps_coordinates": {"latitude": 35.6340000, "longitude": 139.7920000},
+      "rate_per_night": {
+        "display_price": "$95",
+        "extracted_display_price": 95
+      },
+      "gps_coordinates": {
+        "latitude": 35.634,
+        "longitude": 139.792
+      },
       "overall_rating": 4.2,
-      "amenities": ["Kitchen", "Washer", "Free Wi-Fi"],
+      "amenities": [
+        "Kitchen",
+        "Washer",
+        "Free Wi-Fi"
+      ],
       "link": "https://example.invalid/rental",
       "property_token": "FIXTURE_rental"
     },
     {
       "name": "オールデイダイニング グランドエール（實際是飯店附設餐廳）",
       "type": "hotel",
-      "gps_coordinates": {"latitude": 35.6350000, "longitude": 139.7900000},
+      "gps_coordinates": {
+        "latitude": 35.635,
+        "longitude": 139.79
+      },
       "overall_rating": 4.4,
       "reviews": 300,
       "link": "https://example.invalid/restaurant",
       "property_token": "FIXTURE_restaurant"
+    },
+    {
+      "name": "Ariake Garden Hotel",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$112",
+        "extracted_display_price": 112
+      },
+      "gps_coordinates": {
+        "latitude": 35.6341,
+        "longitude": 139.7922
+      },
+      "overall_rating": 4.2,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/ariake",
+      "property_token": "FIXTURE_ariake"
+    },
+    {
+      "name": "Hotel Villa Fontaine Ariake",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$118",
+        "extracted_display_price": 118
+      },
+      "gps_coordinates": {
+        "latitude": 35.6315,
+        "longitude": 139.7948
+      },
+      "overall_rating": 4.0,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/hotel",
+      "property_token": "FIXTURE_hotel"
+    },
+    {
+      "name": "Daiwa Roynet Hotel Ariake",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$126",
+        "extracted_display_price": 126
+      },
+      "gps_coordinates": {
+        "latitude": 35.6302,
+        "longitude": 139.7961
+      },
+      "overall_rating": 4.3,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/daiwa",
+      "property_token": "FIXTURE_daiwa"
+    },
+    {
+      "name": "Tokyo Bay Court Club",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$131",
+        "extracted_display_price": 131
+      },
+      "gps_coordinates": {
+        "latitude": 35.6288,
+        "longitude": 139.7935
+      },
+      "overall_rating": 4.5,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/tokyo",
+      "property_token": "FIXTURE_tokyo"
+    },
+    {
+      "name": "Ariake Central Hotel",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$140",
+        "extracted_display_price": 140
+      },
+      "gps_coordinates": {
+        "latitude": 35.6355,
+        "longitude": 139.791
+      },
+      "overall_rating": 3.9,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/ariake",
+      "property_token": "FIXTURE_ariake"
+    },
+    {
+      "name": "Koto Riverside Hotel",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$149",
+        "extracted_display_price": 149
+      },
+      "gps_coordinates": {
+        "latitude": 35.637,
+        "longitude": 139.7995
+      },
+      "overall_rating": 4.1,
+      "reviews": 400,
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Air conditioning",
+        "Elevator",
+        "Free breakfast",
+        "Restaurant"
+      ],
+      "link": "https://example.invalid/koto",
+      "property_token": "FIXTURE_koto"
     }
   ]
 }

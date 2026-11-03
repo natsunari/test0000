@@ -131,6 +131,25 @@
     .lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 
     .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+
+    /* 超過 6 筆就改成橫向輪播。一次塞十幾張卡片會把頁面拉得很長，
+       而你只會仔細看前面幾張。觸控板、觸控螢幕可以直接滑，
+       滑鼠使用者用兩側的箭頭。 */
+    .carousel{position:relative}
+    .track{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 10px;
+      scroll-snap-type:x mandatory;scroll-behavior:smooth;
+      scrollbar-width:thin;scrollbar-color:#c8cdd4 transparent}
+    .track::-webkit-scrollbar{height:8px}
+    .track::-webkit-scrollbar-thumb{background:#c8cdd4;border-radius:99px}
+    .track > .card{flex:0 0 290px;scroll-snap-align:start}
+    .cnav{position:absolute;top:-38px;right:0;display:flex;gap:6px}
+    .cnav button{width:30px;height:30px;padding:0;border-radius:8px;
+      background:#fff;color:var(--fg);border:1px solid var(--line);
+      font-size:15px;line-height:1;display:flex;align-items:center;
+      justify-content:center}
+    .cnav button:hover:not(:disabled){background:#f3f4f6}
+    .cnav button:disabled{color:#c3c7ce;background:#fafbfc;cursor:default}
+    .cnote{font-size:12px;color:var(--muted);margin:0 0 8px}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
       overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
     .card.ok{border-color:var(--ok-line)}
@@ -404,6 +423,7 @@
       計程車費率：
         {%- if fare_source == 'city' %} 依城市 <b>{{ city_used }}</b>
         {%- elif fare_source == 'country' %} 依國家 <b>{{ place.country_code|upper }}</b>
+        {%- elif fare_source == 'fx_failed' %} <b>保守預設值（換匯失敗）</b>
         {%- else %} <b>保守預設值</b>{% endif %}
         —— 起跳 ${{ '%.2f'|format(fare_used.base) }}／每公里 ${{ '%.2f'|format(fare_used.per_km) }}
         {%- if fare_used.included_km %}（起跳含 {{ fare_used.included_km }} 公里）{% endif %}
@@ -411,7 +431,9 @@
           <span class="muted">（原始費率 {{ fare_raw.currency }} {{ fare_raw.base }}
           含 {{ fare_raw.included_km }} 公里，之後每公里 {{ fare_raw.per_km }}）</span>
         {%- endif %}
-        {% if fare_source == 'default' %}<br>
+        {% if fare_source == 'fx_failed' %}<br>
+        <b>⚠️ 這個地區有費率，但取不到匯率換算不了，暫時用保守估計。</b>
+        {% elif fare_source == 'default' %}<br>
         <b>⚠️ 這個地區還沒有費率，用的是偏高的保守估計。</b>
         實際費率請查「{{ place.country_code|upper if place.country_code else '當地' }} taxi fare」
         後填進 config.toml 的 <code>[taxi_fare_by_country]</code>。{% endif %}
@@ -496,23 +518,60 @@
       </div>
     {% endif %}
 
+    {# 超過 6 筆就橫向輪播，否則照常用格線排 #}
+    {% macro cards(items, kind) %}
+      {% if items|length > 6 %}
+        <div class="carousel">
+          <p class="cnote">共 {{ items|length }} 筆，往右滑看更多（已依順序排好，前面的最合適）</p>
+          <div class="cnav">
+            <button type="button" class="prev" aria-label="上一批">‹</button>
+            <button type="button" class="next" aria-label="下一批">›</button>
+          </div>
+          <div class="track">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
+        </div>
+      {% else %}
+        <div class="grid">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
+      {% endif %}
+    {% endmacro %}
+
     <h2 class="ok">✅ 完全符合 <span class="count">{{ clear|length }}</span></h2>
-    {% if clear %}<div class="grid">{% for v in clear %}{{ card(v, 'ok') }}{% endfor %}</div>
+    {% if clear %}{{ cards(clear, 'ok') }}
     {% else %}<p class="empty">沒有任何一間所有條件都有明確資料。看下面那區。</p>{% endif %}
 
     <h2 class="warn">⚠️ 符合限制，但有項目要自己確認 <span class="count">{{ needs_check|length }}</span></h2>
     {% if needs_check %}
       <p class="lead">預算與交通費都過關。標籤上的 <b>？</b> 代表 Google 沒有這筆資料 —— 不代表沒有，點開飯店頁面確認一下即可。
         <span style="white-space:nowrap">（Ｏ＝有、Ｘ＝沒有、？＝未確認）</span></p>
-      <div class="grid">{% for v in needs_check %}{{ card(v, 'warn') }}{% endfor %}</div>
+      {{ cards(needs_check, 'warn') }}
     {% else %}<p class="empty">無</p>{% endif %}
 
     <h2 class="bad">❌ 已排除 <span class="count">{{ rejected|length }}</span></h2>
     {% if rejected %}
       <p class="lead">列出來是為了讓你知道為什麼不見了，順便檢查規則是不是太嚴。</p>
-      <div class="grid">{% for v in rejected %}{{ card(v, 'bad') }}{% endfor %}</div>
+      {{ cards(rejected, 'bad') }}
     {% else %}<p class="empty">無</p>{% endif %}
   {% endif %}
+
+  <script>
+    // 輪播的左右箭頭。滑到頭的時候要變灰，不然會一直按卻沒反應。
+    document.querySelectorAll('.carousel').forEach((wrap) => {
+      const track = wrap.querySelector('.track');
+      const prev = wrap.querySelector('.prev');
+      const next = wrap.querySelector('.next');
+      const step = () => Math.max(track.clientWidth * 0.8, 290);
+      const sync = () => {
+        const atStart = track.scrollLeft <= 4;
+        const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+        prev.disabled = atStart;
+        next.disabled = atEnd;
+      };
+      prev.addEventListener('click', () => track.scrollBy({ left: -step() }));
+      next.addEventListener('click', () => track.scrollBy({ left: step() }));
+      track.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync);
+      sync();
+    });
+  </script>
 
   <footer>
     地點查詢由 <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> 提供，

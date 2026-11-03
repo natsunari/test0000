@@ -288,7 +288,9 @@ def home():
         # 絕不能把 85 元當成 85 美金 —— 那會高估到荒謬，整頁都變成超標。
         raw_fare = config["taxi_fare"]["default"]
         fare_used, _ = fx.fare_to_usd(raw_fare)
-        fare_source = "default"
+        # 標成 fx_failed 而不是 default —— 這個地區其實有費率，
+        # 只是換不了匯。說成「還沒填費率」會讓人跑去填已經填過的東西。
+        fare_source = "fx_failed"
 
     # ---- 4. 套用規則 ----
     all_verdicts = [

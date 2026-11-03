@@ -291,6 +291,22 @@ v = ev(hotel(amenities=[]))
 check(v.bonuses["breakfast"] == UNKNOWN and v.passed,
       "沒早餐資料也不淘汰（實測 20 間沒有任何一間標早餐）")
 
+print("\n--- 費率來源要歸對因 ---")
+# 東京有費率（日圓），但換不到匯率時會退回保守預設值。
+# 那時候說「這個地區還沒填費率」是歸錯因，會讓人去填已經填過的東西。
+for source, expect_note, label in [
+    ("city", False, "用城市費率時沒有提醒"),
+    ("country", False, "用國家費率時沒有提醒"),
+    ("default", True, "真的沒資料"),
+    ("fx_failed", True, "有資料但換不了匯"),
+]:
+    v = ev(hotel(), source=source)
+    check(bool(v.notes) == expect_note, label)
+check(any("還沒填" in x for x in ev(hotel(), source="default").notes),
+      "沒資料時說「還沒填費率」")
+check(any("匯率" in x for x in ev(hotel(), source="fx_failed").notes),
+      "換不了匯時說的是匯率問題，不是說沒填費率")
+
 print("\n--- 費率預設值提醒 ---")
 v = ev(hotel(), source="default")
 check(v.fare_is_default and any("費率" in x for x in v.to_confirm),

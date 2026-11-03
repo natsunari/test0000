@@ -188,7 +188,8 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     destination -- (緯度, 經度)，通常是展館
     fare        -- 已經換算成美金的費率（base / per_km / included_km）
                    換匯要連網，所以在外面做，這支程式保持不連網
-    fare_source -- "city" / "country" / "default"，用來提醒費率的可靠度
+    fare_source -- "city" / "country" / "default" / "fx_failed"，
+                   用來在畫面上說明費率從哪來、可不可靠
     """
     budget = config["budget"]
     labels = config.get("labels", {})
@@ -291,7 +292,9 @@ def evaluate(hotel: dict, destination: tuple[float, float],
     else:
         straight = haversine_km(lat, lon, destination[0], destination[1])
         road = straight * config["distance"]["road_detour_factor"]
-        is_default = fare_source == "default"
+        # "city" / "country" 代表用的是該地的實際費率；
+        # 其餘都是退回保守預設值，但原因不同，訊息要分開寫。
+        is_default = fare_source not in ("city", "country")
         one_way = estimate_fare(road, fare)
 
         v.distance_km = round(road, 2)
@@ -316,7 +319,9 @@ def evaluate(hotel: dict, destination: tuple[float, float],
                 f"超過每日上限 ${budget['taxi_max_per_day_usd']:g}"
             )
         if is_default:
-            note = "這個地區還沒填計程車費率，用的是保守預設值"
+            note = ("取不到匯率，無法把當地費率換算成美金，暫時用保守預設值"
+                    if fare_source == "fx_failed"
+                    else "這個地區還沒填計程車費率，用的是保守預設值")
             v.to_confirm.append(note)
             v.notes.append(note)
 

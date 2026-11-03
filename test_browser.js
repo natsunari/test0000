@@ -154,6 +154,45 @@ const { chromium } = require('playwright');
   check((await compare.getAttribute('href')).startsWith('https://www.google.com/travel/search?q='),
         '比價連結指向 Google Hotels');
 
+  console.log('\n--- 超過 6 筆改用輪播 ---');
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.waitForLoadState('load');
+  await page.fill('#check_in', '2027-03-10');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.fill('#check_out', '2027-03-12');
+  await page.click('#btnSearch');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(300);
+
+  const carousels = page.locator('.carousel');
+  check(await carousels.count() >= 1, '有區塊超過 6 筆，改用輪播');
+  check(await page.locator('.grid').count() >= 1, '不到 6 筆的區塊仍然用格線');
+
+  const track = carousels.first().locator('.track');
+  const prev = carousels.first().locator('.prev');
+  const next = carousels.first().locator('.next');
+  check(await prev.isDisabled(), '剛載入時「上一批」是停用的（已經在最左邊）');
+  check(!(await next.isDisabled()), '「下一批」可以按');
+
+  const scrollBefore = await track.evaluate(el => el.scrollLeft);
+  await next.click();
+  await page.waitForTimeout(600);
+  const scrollAfter = await track.evaluate(el => el.scrollLeft);
+  check(scrollAfter > scrollBefore,
+        `按「下一批」會往右滑（${scrollBefore} → ${scrollAfter}）`);
+  check(!(await prev.isDisabled()), '滑動之後「上一批」變成可按');
+
+  // 捲動是平滑動畫，直接設 scrollLeft 會慢慢滑過去，所以要等它停
+  await track.evaluate(el => el.scrollTo({ left: el.scrollWidth,
+                                           behavior: 'instant' }));
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('.carousel .track');
+      return el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+    }, null, { timeout: 5000 });
+  await page.waitForTimeout(100);
+  check(await next.isDisabled(), '滑到最右邊時「下一批」變灰');
+
   console.log('\n--- 重新整理要清空欄位（你回報的問題）---');
   // 必須從乾淨的頁面開始。重新整理一個 POST 出來的結果頁，
   // 瀏覽器會重送那次 POST，伺服器本來就該把同樣的值印回來。
