@@ -26,9 +26,33 @@
 
 1. 左上角 **+ New** → **Web Service**
 2. 找到 `test0000` 這個 repo，按 **Connect**
-3. Render 會自己讀到專案裡的 `render.yaml`，
-   名稱、安裝指令、啟動指令都會自動填好，**不用改**
-4. 確認 **Instance Type** 是 **Free**
+
+### ⚠️ 步驟 2-1：先把 Branch 改掉（最容易出錯的一步）
+
+**Branch** 這一欄預設是 `master`，但 **`master` 上面只有 README.md，
+程式全部在另一個分支**。不改的話 Render 會抓到一個空的專案，
+然後猜你在寫 Node.js，Build Command 變成 `yarn`。
+
+把 **Branch** 改成：
+
+```
+claude/keen-shannon-j2qjaj
+```
+
+改完 Render 會重新偵測，**Language 應該會自己變成 Python 3**。
+
+### 步驟 2-2：確認這四欄
+
+| 欄位 | 要填 |
+|---|---|
+| **Branch** | `claude/keen-shannon-j2qjaj` |
+| **Language** | `Python 3` |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `python serve.py` |
+
+Build 和 Start 如果 Render 沒自動填，就自己打上去。
+
+**Instance Type** 選 **Free**。
 
 ---
 
@@ -40,6 +64,10 @@
 |---|---|
 | `SERPAPI_KEY` | 你的 SerpApi 金鑰 |
 | `APP_PASSWORD` | 自己取一個密碼，例如 `hotel-2026-tanya` |
+
+> 專案裡雖然有 `render.yaml`，但那個檔案只有走
+> **New → Blueprint** 才會被讀取。用 **New → Web Service**
+> 的話四個欄位要自己確認，所以上面才列出來。
 
 ⚠️ **`APP_PASSWORD` 一定要填。** 沒填的話等於把網址公開 ——
 任何人點進去都能用，而且會花光你那 250 次／月的額度。
