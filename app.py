@@ -272,6 +272,9 @@ def home():
             data, source = search.search_hotels(
                 hotel_query, form["check_in"], form["check_out"],
                 use_cache=form["mode"] != MODE_REFRESH,
+                # 上限先送給 Google，超標的就不會占掉那 20 個名額
+                max_price=config["budget"]["hotel_max_per_night_usd"],
+                pages=config.get("search", {}).get("pages", 2),
             )
     except (search.MissingKey, search.SearchFailed) as exc:
         return page(form=form, error=str(exc), config=config)
@@ -356,6 +359,7 @@ def home():
     return page(
         form=form, config=config, place=place, source=source, searched=True,
         fetched_at=data.get("_fetched_at"), total=len(all_verdicts),
+        pages_fetched=data.get("_pages_fetched"),
         hidden_types=hidden_types, hidden_dorms=hidden_dorms,
         breakdown=breakdown.most_common(), price_range=price_range, hotel_query=hotel_query,
         far_warning=far_warning,

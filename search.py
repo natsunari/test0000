@@ -20,6 +20,7 @@ import json
 import os
 import time
 from pathlib import Path
+from urllib.parse import parse_qsl, urlparse
 
 import requests
 
@@ -76,16 +77,46 @@ def _cache_path(params: dict) -> Path:
     return CACHE_DIR / f"{digest}.json"
 
 
+def _next_page_params(data: dict) -> dict | None:
+    """
+    從回應裡找出「下一頁」要帶的參數。
+
+    SerpApi 的分頁欄位名稱我沒能從文件確認（網站在開發環境的白名單外），
+    所以幾種可能的位置都試一遍，找不到就當作沒有下一頁 ——
+    那只會少拿一些候選，不會出錯。
+    """
+    pagination = data.get("serpapi_pagination") or {}
+    token = (pagination.get("next_page_token")
+             or data.get("next_page_token"))
+    if token:
+        return {"next_page_token": token}
+
+    url = pagination.get("next") or data.get("next")
+    if isinstance(url, str) and url.startswith("http"):
+        # 把網址上的查詢參數拆出來重用，但丟掉裡面可能夾帶的金鑰
+        params = dict(parse_qsl(urlparse(url).query))
+        params.pop("api_key", None)
+        return params or None
+    return None
+
+
 def search_hotels(query: str, check_in: str, check_out: str, *,
                   currency: str = "USD", adults: int = 1,
                   use_cache: bool = True,
-                  allow_network: bool = True) -> tuple[dict, str]:
+                  allow_network: bool = True,
+                  max_price: float | None = None,
+                  pages: int = 2) -> tuple[dict, str]:
     """
     查詢飯店。
 
     回傳 (資料, 來源)，來源是 "快取" 或 "SerpApi"。
     use_cache=False 可強制重查（例如你想要最新的空房狀況）。
     allow_network=False 則只讀快取，絕不消耗額度。
+
+    max_price -- 把房價上限送給 Google，讓它先篩掉超標的。
+                 Google 一頁只回二十筆左右，不先篩的話名額會浪費在
+                 一定會被刷掉的飯店上。
+    pages     -- 要抓幾頁。每一頁各算一次 API 額度。
     """
     params = {
         "engine": "google_hotels",
@@ -97,6 +128,8 @@ def search_hotels(query: str, check_in: str, check_out: str, *,
         "gl": "us",
         "hl": "en",
     }
+    if max_price:
+        params["max_price"] = int(max_price)
 
     path = _cache_path(params)
     if use_cache and path.exists():
@@ -108,7 +141,42 @@ def search_hotels(query: str, check_in: str, check_out: str, *,
     if not allow_network:
         raise SearchFailed("目前是離線模式，而這組條件沒有快取過。")
 
-    params["api_key"] = load_api_key()
+    api_key = load_api_key()
+    data: dict = {}
+    seen: set[str] = set()
+    merged: list[dict] = []
+    fetched = 0
+    request_params = dict(params)
+
+    for _ in range(max(1, pages)):
+        page = _fetch_page({**request_params, "api_key": api_key})
+        fetched += 1
+        if not data:
+            data = page
+        for item in page.get("properties", []) or []:
+            # 用 property_token 去重，沒有的話退而用名稱
+            key_id = item.get("property_token") or item.get("name")
+            if key_id and key_id in seen:
+                continue
+            if key_id:
+                seen.add(key_id)
+            merged.append(item)
+
+        following = _next_page_params(page)
+        if not following:
+            break
+        request_params = {**params, **following}
+
+    data["properties"] = merged
+    data["_fetched_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    data["_pages_fetched"] = fetched
+    CACHE_DIR.mkdir(exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return data, "SerpApi"
+
+
+def _fetch_page(params: dict) -> dict:
+    """送出一次查詢。每一次都算一次 API 額度。"""
     try:
         res = requests.get(SERPAPI_URL, params=params, timeout=60)
     except requests.RequestException as exc:
@@ -127,11 +195,7 @@ def search_hotels(query: str, check_in: str, check_out: str, *,
     data = res.json()
     if data.get("error"):
         raise SearchFailed(f"SerpApi 回報錯誤：{data['error']}")
-
-    data["_fetched_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    CACHE_DIR.mkdir(exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    return data, "SerpApi"
+    return data
 
 
 def load_fixture() -> dict:

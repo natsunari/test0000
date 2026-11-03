@@ -382,7 +382,9 @@
         {%- if place.landmark and hotel_query == place.landmark %}（由目的地解析出的地標）
         {%- elif place.area and hotel_query == place.area %}（只查到城市，結果會散得比較開）
         {%- else %}（你輸入的文字）{% endif %}<br>
-      資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}；共 {{ total }} 筆住宿
+      資料來源：<b>{{ source }}</b>{% if fetched_at %}，查詢時間 {{ fetched_at }}{% endif %}
+      {%- if pages_fetched and source != '快取' %}（抓了 {{ pages_fetched }} 頁，
+        用掉 {{ pages_fetched }} 次 API 額度）{% endif %}；共 {{ total }} 筆住宿
       {%- if hidden_types or hidden_dorms %}，其中
         {%- if hidden_types %} {{ hidden_types }} 筆不是飯店（民宿、露營地等）
         {%- endif %}{% if hidden_types and hidden_dorms %}、{% endif %}
