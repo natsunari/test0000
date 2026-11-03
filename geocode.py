@@ -196,6 +196,14 @@ def _area_from_address(address: dict | None) -> str | None:
 # 實際踩過：查「14 Darling Dr, Sydney」解析出 "Harajuku Gyoza"（一家餃子店），
 # 拿去查飯店時 Google 看到 Harajuku 就跑去搜東京原宿，結果在 18939 公里外。
 _NOT_A_LANDMARK = {
+    # 行政區劃 —— 那是「地區」，不是地標，而且 area 欄位已經涵蓋了。
+    # 實際踩過：南港展覽館的座標反查出「三重里」，那是個里，
+    # 拿去查飯店完全沒有意義。
+    "village", "hamlet", "neighbourhood", "quarter", "suburb", "borough",
+    "locality", "city_block", "residential", "town", "city", "county",
+    "state", "province", "municipality", "administrative", "postcode",
+    "house", "building_part", "yes",
+    # 日常店家
     "restaurant", "cafe", "fast_food", "bar", "pub", "bakery", "ice_cream",
     "food_court", "biergarten",
     "bank", "atm", "pharmacy", "clinic", "dentist", "doctors", "veterinary",
@@ -248,7 +256,8 @@ def reverse_lookup(lat: float, lon: float
         res = requests.get(
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": lat, "lon": lon, "format": "json",
-                    "addressdetails": 1, "zoom": 12},
+                    "addressdetails": 1, "zoom": 12,
+                    "accept-language": "en"},
             headers={"User-Agent": USER_AGENT},
             timeout=20,
         )
@@ -393,7 +402,7 @@ def _query_nominatim(text: str) -> Place:
         res = requests.get(
             NOMINATIM_URL,
             params={"q": text, "format": "json", "limit": 1,
-                    "addressdetails": 1},
+                    "addressdetails": 1, "accept-language": "en"},
             headers={"User-Agent": USER_AGENT},
             timeout=20,
         )

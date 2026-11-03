@@ -35,6 +35,12 @@ const { chromium } = require('playwright');
   check(await state('btnReset'), '還原限制條件：停用（目前就是預設值，按了沒事做）');
   check(await page.locator('#btnSave').count() === 0, '沒有「儲存限制」按鈕了');
 
+  check(await page.locator('#modeDemo').count() === 0,
+        '畫面上沒有「示範模式」選項了');
+  const modeLabels = await page.locator('.mode span b').allTextContents();
+  check(JSON.stringify(modeLabels) === JSON.stringify(['搜尋', '重查']),
+        `搜尋方式只剩兩個：${modeLabels.join('、')}`);
+
   console.log('\n--- 三個開關預設全開 ---');
   for (const name of ['require_availability', 'assume_air_conditioning', 'assume_elevator']) {
     check(await page.locator(`input[name="${name}"]`).isChecked(), `${name}：預設勾選`);
@@ -69,8 +75,10 @@ const { chromium } = require('playwright');
         '限制條件回到預設的 180');
 
   console.log('\n--- 改了限制直接搜尋，限制會生效並記住 ---');
+  // ?demo=1 用內建資料，不連網也不花額度 —— 這是唯一能驗證結果頁渲染的方式
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.waitForLoadState('load');
   await page.fill('#s_hotel_max_per_night_usd', '100');
-  await page.click('label:has(#modeDemo)');
   await page.fill('#check_in', '2027-03-10');
   await page.fill('#check_out', '2027-03-12');
   await page.click('#btnSearch');
@@ -131,7 +139,8 @@ const { chromium } = require('playwright');
         '退房下限跟著更新成 3/11');
 
   console.log('\n--- 每張卡片有兩個連結 ---');
-  await page.click('label:has(#modeDemo)');
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.waitForLoadState('load');
   await page.fill('#check_in', '2027-03-10');
   await page.dispatchEvent('#check_in', 'change');
   await page.fill('#check_out', '2027-03-12');
@@ -154,7 +163,6 @@ const { chromium } = require('playwright');
   await page.fill('#city', 'Taipei');
   await page.fill('#check_in', '2027-03-10');
   await page.fill('#check_out', '2027-03-12');
-  await page.click('label:has(#modeDemo)');
   await page.waitForTimeout(100);
   check(await page.inputValue('#destination') === 'Taipei 101', '填入值確實生效');
 
@@ -166,17 +174,18 @@ const { chromium } = require('playwright');
     city: await page.inputValue('#city'),
     check_in: await page.inputValue('#check_in'),
     check_out: await page.inputValue('#check_out'),
-    demo: await page.locator('#modeDemo').isChecked(),
+    mode: await page.locator('input[name="mode"]:checked').getAttribute('value'),
   };
   console.log('    重新整理後：', JSON.stringify(after));
   check(after.destination === '', '目的地已清空');
   check(after.city === '', '城市已清空');
   check(after.check_in === '' && after.check_out === '', '日期已清空');
-  check(after.demo === false, '搜尋方式回到預設的「一般搜尋」');
+  check(after.mode === 'cache', '搜尋方式回到預設的「搜尋」');
 
   console.log('\n--- 搜尋結果頁的欄位應該保留，不能被清掉 ---');
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.waitForLoadState('load');
   await page.fill('#destination', 'x');
-  await page.click('label:has(#modeDemo)');
   await page.fill('#check_in', '2027-03-10');
   await page.fill('#check_out', '2027-03-12');
   await page.click('#btnSearch');

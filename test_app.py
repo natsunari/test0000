@@ -50,11 +50,15 @@ for ok in [
 ]:
     check(app.validate(form(destination=ok)) is None, f"「{ok[:38]}」通過")
 
-print("\n--- 示範模式不檢查目的地 ---")
-check(app.validate(form(destination="", mode=app.MODE_DEMO)) is None,
+print("\n--- 示範模式（?demo=1）不檢查目的地 ---")
+# 示範模式已經從畫面上拿掉，只剩網址參數，留給瀏覽器測試用 ——
+# 那是唯一能在不連網、不花額度的情況下驗證結果頁渲染的方式。
+check(app.validate(form(destination=""), is_demo=True) is None,
       "示範模式留空也可以（反正會被忽略）")
-check(app.validate(form(destination="台北101", mode=app.MODE_DEMO)) is None,
+check(app.validate(form(destination="台北101"), is_demo=True) is None,
       "示範模式填中文也不擋（反正不會拿去查）")
+check(app.validate(form(destination="")) is not None,
+      "一般模式留空仍然會被擋下")
 
 print("\n--- 必填 ---")
 check("目的地" in (app.validate(form(destination="")) or ""), "目的地空白會被擋下")

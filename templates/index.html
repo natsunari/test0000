@@ -180,7 +180,8 @@
   {% if settings_error %}<div class="error">{{ settings_error }}</div>{% endif %}
   {% if saved_note %}<div class="saved">✔ {{ saved_note }}</div>{% endif %}
 
-  <form method="post" autocomplete="off" id="mainForm" class="panel">
+  <form method="post" action="{{ '/?demo=1' if demo else '/' }}"
+        autocomplete="off" id="mainForm" class="panel">
     <div class="cols">
       <section class="col-search">
         <div class="row">
@@ -201,7 +202,7 @@
                 <option value="{{ c.name }}"{% if c.note %} label="{{ c.note }}"{% endif %}>
               {% endfor %}
             </datalist>
-            <div class="hint">查計程車費率，建議填。清單裡沒有的直接打也可以。</div>
+            <div class="hint">查計程車費率，建議填。可以從清單選，也可以自己輸入。</div>
           </div>
         </div>
         <div class="row">
@@ -218,24 +219,22 @@
           <div class="mode">
             <label><input type="radio" name="mode" value="{{ MODE_CACHE }}"
                    {% if form.mode == MODE_CACHE %}checked{% endif %}>
-              <span><b>一般搜尋</b><em>有查過就用存檔，沒有才連網</em></span></label>
+              <span><b>搜尋</b><em>歷史存檔顯示</em></span></label>
           </div>
           <div class="mode">
             <label><input type="radio" name="mode" value="{{ MODE_REFRESH }}"
                    {% if form.mode == MODE_REFRESH %}checked{% endif %}>
-              <span><b>強制重查</b><em>目的地與飯店全部重查，花 1 次額度</em></span></label>
-          </div>
-          <div class="mode">
-            <label><input type="radio" name="mode" id="modeDemo" value="{{ MODE_DEMO }}"
-                   {% if form.mode == MODE_DEMO %}checked{% endif %}>
-              <span><b>示範模式</b><em>內建資料，不連網、不花額度</em></span></label>
+              <span><b>重查</b><em>目的地與飯店重查</em></span></label>
           </div>
         </div>
 
-        <div id="demoNote" class="notice" {% if form.mode != MODE_DEMO %}hidden{% endif %}>
-          ⚠️ 示範模式會<b>忽略上面的目的地與城市</b>，固定使用 Tokyo Big Sight 的內建測試資料。
-          要查你自己的展館，請改選「一般搜尋」。
+        {% if demo %}
+        <div class="notice">
+          ⚠️ 目前是<b>示範模式</b>（網址帶了 <code>?demo=1</code>）。
+          會忽略目的地與城市，固定使用內建測試資料，不連網也不花額度。
+          拿掉網址的 <code>?demo=1</code> 就回到正常搜尋。
         </div>
+        {% endif %}
       </section>
 
       <section class="col-settings" id="settingsCol">
@@ -290,8 +289,6 @@
       const form = document.getElementById('mainForm');
       const settingsCol = document.getElementById('settingsCol');
       const btnReset = document.getElementById('btnReset');
-      const demoNote = document.getElementById('demoNote');
-      const demoRadio = document.getElementById('modeDemo');
 
       const settingInputs = () => Array.from(settingsCol.querySelectorAll('input'));
 
@@ -333,16 +330,11 @@
         }
       }
 
-      function syncDemoNote() {
-        if (demoNote && demoRadio) demoNote.hidden = !demoRadio.checked;
-      }
-
       // 瀏覽器會在重新整理或返回時把剛才填的值填回去，
       // 而且那發生在 load 之後，所以要等 load 才清，提早清會被蓋掉。
       function clearRestoredValues() {
         form.reset();
         refresh();
-        syncDemoNote();
         syncDates();
       }
       refresh();
@@ -369,8 +361,6 @@
       checkIn.addEventListener('change', syncDates);
       settingsCol.addEventListener('input', refresh);
       settingsCol.addEventListener('change', refresh);
-      form.querySelectorAll('input[name="mode"]').forEach(
-        r => r.addEventListener('change', syncDemoNote));
     })();
   </script>
 
@@ -380,7 +370,7 @@
         ⚠️ 這是<b>示範模式</b>的結果，用的是內建測試資料。
         {% if ignored.destination %}你輸入的「<b>{{ ignored.destination }}</b>」
         <b>沒有被使用</b>。{% endif %}
-        要查真實資料請改選「一般搜尋」。
+        要查真實資料，請把網址的 <code>?demo=1</code> 拿掉。
       </div>
     {% endif %}
 

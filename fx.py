@@ -18,6 +18,12 @@ from pathlib import Path
 import requests
 
 FRANKFURTER_URL = "https://api.frankfurter.dev/v1/latest"
+
+# 備援來源。Frankfurter 的資料來自歐洲央行等官方機構，涵蓋的幣別有限 ——
+# 台幣（TWD）就不在裡面，實際用的時候會整個換不出來。
+# 這個社群維護的資料集放在 jsDelivr CDN 上，免費、不需金鑰、涵蓋 200 多種幣別。
+FALLBACK_URL = ("https://cdn.jsdelivr.net/npm/@fawazahmed0/"
+                "currency-api@latest/v1/currencies/{base}.json")
 CACHE_PATH = Path(__file__).parent / "fx_cache.json"
 
 
@@ -48,6 +54,44 @@ class Rate:
         if self.target in {"JPY", "KRW", "VND", "IDR", "TWD"}:
             return f"{converted:,.0f}"
         return f"{converted:,.2f}"
+
+
+def _from_frankfurter(base: str, target: str) -> tuple[float | None, str | None]:
+    res = requests.get(FRANKFURTER_URL,
+                       params={"base": base, "symbols": target}, timeout=15)
+    if res.status_code != 200:
+        return None, None
+    data = res.json()
+    return data.get("rates", {}).get(target), data.get("date")
+
+
+def _from_fallback(base: str, target: str) -> tuple[float | None, str | None]:
+    """
+    涵蓋 Frankfurter 沒有的幣別。
+
+    歐洲央行只公布約 30 種參考匯率，台幣（TWD）、越南盾（VND）、
+    阿聯迪拉姆（AED）都不在裡面 —— 這三個正好是你會去的地方。
+
+    ⚠️ 這個來源的回應格式我沒能實際驗證（CDN 在開發環境的網路白名單外），
+       所以解析寫得寬容：兩種可能的結構都試，試不出來就安靜回傳 None，
+       由呼叫端沿用舊值或退回保守預設值。
+    """
+    res = requests.get(FALLBACK_URL.format(base=base.lower()), timeout=15)
+    if res.status_code != 200:
+        return None, None
+    data = res.json()
+    if not isinstance(data, dict):
+        return None, None
+    as_of = data.get("date")
+    inner = data.get(base.lower())
+    if isinstance(inner, dict):
+        value = inner.get(target.lower())
+        if isinstance(value, (int, float)):
+            return float(value), as_of
+    value = data.get(target.lower())          # 萬一是扁平結構
+    if isinstance(value, (int, float)):
+        return float(value), as_of
+    return None, None
 
 
 def _load_cache() -> dict:
@@ -88,26 +132,18 @@ def get_rate(target: str, base: str = "USD", *,
         return Rate(base, target, cached["value"], cached["as_of"], stale=False)
 
     if allow_network:
-        try:
-            res = requests.get(
-                FRANKFURTER_URL,
-                params={"base": base, "symbols": target},
-                timeout=15,
-            )
-            if res.status_code == 200:
-                data = res.json()
-                value = data.get("rates", {}).get(target)
-                if value:
-                    cache[key] = {
-                        "value": float(value),
-                        "as_of": data.get("date", today),
-                        "checked_on": today,
-                    }
-                    _save_cache(cache)
-                    return Rate(base, target, float(value), cache[key]["as_of"],
-                                stale=False)
-        except (requests.RequestException, ValueError):
-            pass      # 失敗就往下用舊資料
+        for fetch in (_from_frankfurter, _from_fallback):
+            try:
+                value, as_of = fetch(base, target)
+            except (requests.RequestException, ValueError, KeyError, TypeError):
+                continue
+            if value:
+                cache[key] = {"value": float(value),
+                              "as_of": as_of or today,
+                              "checked_on": today}
+                _save_cache(cache)
+                return Rate(base, target, float(value), cache[key]["as_of"],
+                            stale=False)
 
     # 連不上時沿用上次的值，並標記為舊資料
     if cached:

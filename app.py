@@ -30,10 +30,14 @@ DEMO_PLACE = geocode.Place(
 )
 DEMO_CITY = "Tokyo"
 
-# 三選一的搜尋模式
+# 搜尋方式
+MODE_CACHE = "cache"        # 有存檔就用存檔
+MODE_REFRESH = "refresh"    # 目的地與飯店全部重查
+
+# 示範模式不在畫面上，改用網址參數 ?demo=1 開啟。
+# 留著是因為瀏覽器測試需要它 —— 那是唯一能在不連網、不花額度的情況下
+# 驗證結果頁渲染的方式。一般使用者不會碰到。
 MODE_DEMO = "demo"
-MODE_CACHE = "cache"
-MODE_REFRESH = "refresh"
 
 
 def _city_options(config: dict) -> list[dict]:
@@ -157,10 +161,10 @@ def hotel_search_query(destination: str, place) -> str:
     return place.landmark or place.area or destination
 
 
-def validate(form: dict) -> str | None:
+def validate(form: dict, is_demo: bool = False) -> str | None:
     """檢查必填與日期先後。回傳錯誤訊息，沒問題則回傳 None。"""
     destination = form["destination"].strip()
-    if form["mode"] != MODE_DEMO:
+    if not is_demo:
         if not destination:
             return "請填寫目的地（英文名稱、英文地址，或座標）。"
         # 座標與 Google Maps 連結不受限制，那些本來就不是文字描述
@@ -192,6 +196,8 @@ def validate(form: dict) -> str | None:
 def home():
     base_config = rules.load_config()
     action = request.form.get("action", "search")
+    # 示範模式只能從網址參數開啟，畫面上沒有這個選項
+    is_demo = request.args.get("demo") == "1"
 
     def left_fields() -> dict:
         """左邊那些搜尋欄位，使用者剛才填的內容。"""
@@ -216,8 +222,8 @@ def home():
             "settings_fields": settings_fields(base_config,
                                                extra.pop("submitted", None)),
             "using_custom": bool(settings.load()),
-            "MODE_DEMO": MODE_DEMO, "MODE_CACHE": MODE_CACHE,
-            "MODE_REFRESH": MODE_REFRESH,
+            "MODE_CACHE": MODE_CACHE, "MODE_REFRESH": MODE_REFRESH,
+            "demo": is_demo,
         }
         context.update(extra)
         return render_template("index.html", **context)
@@ -245,11 +251,9 @@ def home():
         settings.save(values)
     config = settings.apply(base_config, values)
 
-    problem = validate(form)
+    problem = validate(form, is_demo)
     if problem:
         return page(form=form, error=problem, config=config)
-
-    is_demo = form["mode"] == MODE_DEMO
 
     # ---- 1. 目的地轉座標 ----
     try:
@@ -340,7 +344,10 @@ def home():
         currency_note = (f"國碼「{place.country_code}」不在 config.toml 的"
                          f" currency_by_country 對照表裡，所以只顯示美金")
     else:
-        currency_note = f"取不到 {local_currency} 匯率（網路或對方服務問題），只顯示美金"
+        currency_note = (
+            f"取不到 {local_currency} 匯率。歐洲央行只公布約 30 種參考匯率，"
+            f"台幣、越南盾、阿聯迪拉姆都不在裡面，程式會改用備援來源 —— "
+            f"兩邊都失敗時才會看到這行。可以跑 python check_fx.py 檢查。")
 
     # 查成功的地點存起來，下次同一個展館不用再問 OpenStreetMap
     if not is_demo and place.source == "OpenStreetMap":
