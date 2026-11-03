@@ -35,7 +35,7 @@ from rules import haversine_km
 VENUES = [
     ("CES", "Las Vegas Convention Center",
      "3150 Paradise Rd, Las Vegas, NV 89109, USA", None),
-    ("MWC / ISE", "Fira Barcelona Gran Via",
+    ("MWC / ISE", "Fira de Barcelona Gran Via",
      "Av. Joan Carles I, 64, 08908 L'Hospitalet de Llobregat, Spain", None),
     ("IFA", "Messe Berlin",
      "Messedamm 22, 14055 Berlin, Germany", None),
@@ -45,13 +45,14 @@ VENUES = [
      "3-11-1 Ariake, Koto City, Tokyo, Japan", None),
     ("CEATEC", "Makuhari Messe",
      "2-1 Nakase, Mihama Ward, Chiba, Japan", None),
-    ("embedded world", "NurnbergMesse",
+    ("embedded world", "Messezentrum Nurnberg",
      "Messezentrum 1, 90471 Nurnberg, Germany", (49.417409, 11.115364)),
     ("SEMICON West", "Moscone Center",
      "747 Howard St, San Francisco, CA 94103, USA", (37.784173, -122.401557)),
     ("GITEX", "Dubai World Trade Centre",
      "Sheikh Zayed Road, Dubai, United Arab Emirates", None),
-    ("Hannover Messe", "Deutsche Messe Hannover",
+    # OSM 裡的名字是 Hanover Fairground —— 這是上一次實測從地址查出來的
+    ("Hannover Messe", "Hanover Fairground",
      "Messegelande, 30521 Hannover, Germany", None),
     ("electronica", "Messe Munchen",
      "Messegelande, 81823 Munchen, Germany", None),
@@ -107,16 +108,36 @@ def main() -> int:
             by_coord, line = describe("座標", coord_text)
             print(line)
 
+        # 判定標準：至少一種寫法查得到，而且查得到的那幾種彼此一致。
+        #
+        # 實測發現名稱和地址沒有哪一種永遠可靠 ——
+        # 東京國際展示場的名稱查得到、地址查不到；
+        # 漢諾威展場反過來。但兩者合起來幾乎都能解決，
+        # 而座標永遠可用。所以要求「三種都成功」太嚴格，沒有意義。
+        resolved = [(label, pl) for label, pl in
+                    (("名稱", by_name), ("地址", by_addr), ("座標", by_coord))
+                    if pl]
         problems = []
-        if by_name and by_addr:
-            gap = haversine_km(by_name.latitude, by_name.longitude,
-                               by_addr.latitude, by_addr.longitude)
-            mark = "✅" if gap <= TOLERANCE_KM else "❌"
-            print(f"    {mark} 名稱與地址相距 {gap:.2f} 公里")
-            if gap > TOLERANCE_KM:
-                problems.append(f"名稱與地址差 {gap:.1f} 公里")
+
+        if not resolved:
+            problems.append("三種寫法都查不到")
         else:
-            problems.append("名稱或地址查不到")
+            usable = "、".join(label for label, _ in resolved)
+            print(f"    ℹ️  可用的寫法：{usable}")
+
+        for i in range(len(resolved)):
+            for j in range(i + 1, len(resolved)):
+                (la, pa), (lb, pb) = resolved[i], resolved[j]
+                gap = haversine_km(pa.latitude, pa.longitude,
+                                   pb.latitude, pb.longitude)
+                if gap > TOLERANCE_KM:
+                    problems.append(f"{la}與{lb}差 {gap:.1f} 公里")
+                elif (la, lb) == ("名稱", "地址"):
+                    print(f"    ✅ 名稱與地址相距 {gap:.2f} 公里")
+                if pa.country_code and pb.country_code \
+                        and pa.country_code != pb.country_code:
+                    problems.append(
+                        f"{la}與{lb}國碼不同（{pa.country_code}/{pb.country_code}）")
 
         if reference and by_name:
             gap = haversine_km(by_name.latitude, by_name.longitude, *reference)
@@ -125,15 +146,7 @@ def main() -> int:
             if gap > TOLERANCE_KM:
                 problems.append(f"與查證座標差 {gap:.1f} 公里")
 
-        # 查飯店字串若落在別的國家就是大問題
-        if by_name and by_addr:
-            qa = app.hotel_search_query(name, by_name)
-            qb = app.hotel_search_query(address, by_addr)
-            if by_name.country_code != by_addr.country_code:
-                problems.append(
-                    f"國碼不一致（{by_name.country_code} vs {by_addr.country_code}）")
-            print(f"    {'❌' if problems else '✅'} "
-                  f"{'有問題：' + '、'.join(problems) if problems else '三種寫法一致'}")
+        print(f"    {'❌ 有問題：' + '、'.join(problems) if problems else '✅ 通過'}")
 
         if problems:
             failed += 1

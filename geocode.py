@@ -192,18 +192,26 @@ def _area_from_address(address: dict | None) -> str | None:
     return ", ".join(parts) if parts else None
 
 
-# 這些類型是「那個地址上剛好有的一家店」，不是地標。
-# 實際踩過：查「14 Darling Dr, Sydney」解析出 "Harajuku Gyoza"（一家餃子店），
-# 拿去查飯店時 Google 看到 Harajuku 就跑去搜東京原宿，結果在 18939 公里外。
+# 判斷「這是不是地標」。
+#
+# 原本是逐一列舉不要的 type，結果變成打地鼠 —— 紐倫堡展場的座標
+# 解析出 "ORTOG"（場內的一家公司），因為那個 type 不在清單上。
+# 改成用 OSM 的 class 判斷，範圍才收得住。
+#
+# class 是大分類（amenity / shop / office / tourism / place …），
+# type 是細分類（restaurant / exhibition_centre / village …）。
+_LANDMARK_CLASSES = {
+    "tourism",      # 景點、飯店、展覽館
+    "leisure",      # 公園、體育場、會議中心
+    "historic",     # 古蹟
+    "building",     # 有名字的建築物
+    "aeroway",      # 機場
+    "railway",      # 車站
+    "amenity",      # 展覽中心、大學、醫院…（底下再用 type 過濾日常店家）
+}
+
+# class=amenity 底下仍然有大量日常店家，要再篩一層
 _NOT_A_LANDMARK = {
-    # 行政區劃 —— 那是「地區」，不是地標，而且 area 欄位已經涵蓋了。
-    # 實際踩過：南港展覽館的座標反查出「三重里」，那是個里，
-    # 拿去查飯店完全沒有意義。
-    "village", "hamlet", "neighbourhood", "quarter", "suburb", "borough",
-    "locality", "city_block", "residential", "town", "city", "county",
-    "state", "province", "municipality", "administrative", "postcode",
-    "house", "building_part", "yes",
-    # 日常店家
     "restaurant", "cafe", "fast_food", "bar", "pub", "bakery", "ice_cream",
     "food_court", "biergarten",
     "bank", "atm", "pharmacy", "clinic", "dentist", "doctors", "veterinary",
@@ -211,6 +219,8 @@ _NOT_A_LANDMARK = {
     "convenience", "supermarket", "kiosk", "newsagent", "florist",
     "clothes", "shoes", "mobile_phone", "optician", "jewelry",
     "post_office", "police", "fire_station",
+    "parking", "toilets", "bench", "waste_basket", "vending_machine",
+    "bicycle_parking", "charging_station", "shelter", "drinking_water",
 }
 
 
@@ -224,7 +234,11 @@ def _poi_name(data: dict, address: dict | None) -> str | None:
     但要擋掉日常店家 —— 查一個街道地址時，Nominatim 常常回傳
     那棟樓裡的某家餐廳或商店，那不是地標，拿去查飯店會跑到別的城市。
     """
+    category = str(data.get("class") or "").strip().lower()
     kind = str(data.get("type") or "").strip().lower()
+    # class 不在允許清單就不是地標（shop、office、place、highway…）
+    if category and category not in _LANDMARK_CLASSES:
+        return None
     if kind in _NOT_A_LANDMARK:
         return None
 
@@ -256,7 +270,9 @@ def reverse_lookup(lat: float, lon: float
         res = requests.get(
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": lat, "lon": lon, "format": "json",
-                    "addressdetails": 1, "zoom": 12,
+                    # zoom=18 是建築物層級。用 12（城市層級）的話
+                    # 反查永遠拿不到地標，只會回傳城市名。
+                    "addressdetails": 1, "zoom": 18,
                     "accept-language": "en"},
             headers={"User-Agent": USER_AGENT},
             timeout=20,

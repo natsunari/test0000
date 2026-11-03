@@ -116,18 +116,51 @@ try:
 finally:
     geocode.requests.get = original_get
 
+print("\n--- 用 OSM 的 class 判斷是不是地標 ---")
+# 原本逐一列舉不要的 type，變成打地鼠 —— 紐倫堡展場的座標解析出
+# "ORTOG"（場內的一家公司），因為那個 type 不在清單上。
+# 改成先看 class，範圍才收得住。
+for data, expected, label in [
+    ({"name": "ORTOG", "class": "office", "type": "company"}, None, "展場裡的公司"),
+    ({"name": "Some Shop", "class": "shop", "type": "convenience"}, None, "商店"),
+    ({"name": "Winchester", "class": "place", "type": "town"}, None, "城鎮"),
+    ({"name": "Sanchong", "class": "place", "type": "village"}, None, "行政區劃"),
+    ({"name": "A Road", "class": "highway", "type": "primary"}, None, "道路"),
+    ({"name": "Tokyo Big Sight", "class": "amenity",
+      "type": "exhibition_centre"}, "Tokyo Big Sight", "展覽館"),
+    ({"name": "ICC Sydney", "class": "leisure",
+      "type": "convention_centre"}, "ICC Sydney", "會議中心"),
+    ({"name": "Moscone Center", "class": "building", "type": "yes"},
+     "Moscone Center", "有名字的建築"),
+    ({"name": "Taipei 101", "class": "tourism", "type": "attraction"},
+     "Taipei 101", "觀光地標"),
+]:
+    got = geocode._poi_name(data, {})
+    check(got == expected, f"{label}（class={data['class']}）→ {got}")
+
+print("\n--- 反查要用建築物層級 ---")
+# zoom=12 是城市層級，反查永遠拿不到地標，只會回傳城市名。
+# 實測 13 個展館，座標那一欄全部顯示「（無地標）」就是這個原因。
+import inspect
+src = inspect.getsource(geocode.reverse_lookup)
+check('"zoom": 18' in src, "反查使用 zoom=18（建築物層級）")
+
 print("\n--- 地址上的店家不是地標 ---")
 # 實際踩過：查「14 Darling Dr, Sydney」解析出 "Harajuku Gyoza"（一家餃子店），
 # 拿去查飯店時 Google 看到 Harajuku 就跑去搜東京原宿，結果在 18939 公里外。
 for data, address, expected, label in [
-    ({"name": "Harajuku Gyoza", "type": "restaurant"}, {}, None, "餐廳"),
-    ({"name": "Starbucks", "type": "cafe"}, {}, None, "咖啡店"),
-    ({"name": "7-Eleven", "type": "convenience"}, {}, None, "便利商店"),
-    ({"name": "ANZ", "type": "bank"}, {}, None, "銀行"),
-    ({"name": "Taipei 101", "type": "attraction"}, {}, "Taipei 101", "觀光地標"),
-    ({"name": "Tokyo Big Sight", "type": "exhibition_centre"}, {},
-     "Tokyo Big Sight", "展覽館"),
-    ({"name": "Sofitel Sydney", "type": "hotel"}, {}, "Sofitel Sydney", "飯店"),
+    ({"name": "Harajuku Gyoza", "class": "amenity", "type": "restaurant"},
+     {}, None, "餐廳"),
+    ({"name": "Starbucks", "class": "amenity", "type": "cafe"}, {}, None, "咖啡店"),
+    ({"name": "7-Eleven", "class": "shop", "type": "convenience"},
+     {}, None, "便利商店"),
+    ({"name": "ANZ", "class": "amenity", "type": "bank"}, {}, None, "銀行"),
+    ({"name": "Taipei 101", "class": "tourism", "type": "attraction"},
+     {}, "Taipei 101", "觀光地標"),
+    ({"name": "Tokyo Big Sight", "class": "amenity",
+      "type": "exhibition_centre"}, {}, "Tokyo Big Sight", "展覽館"),
+    ({"name": "Sofitel Sydney", "class": "tourism", "type": "hotel"},
+     {}, "Sofitel Sydney", "飯店"),
     ({}, {"building": "International Convention Centre"},
      "International Convention Centre", "只有 building 欄位"),
 ]:
