@@ -36,7 +36,7 @@
 把 **Branch** 改成：
 
 ```
-claude/keen-shannon-j2qjaj
+claude/search-hotel-tool
 ```
 
 改完 Render 會重新偵測，**Language 應該會自己變成 Python 3**。
@@ -45,7 +45,7 @@ claude/keen-shannon-j2qjaj
 
 | 欄位 | 要填 |
 |---|---|
-| **Branch** | `claude/keen-shannon-j2qjaj` |
+| **Branch** | `claude/search-hotel-tool` |
 | **Language** | `Python 3` |
 | **Build Command** | `pip install -r requirements.txt` |
 | **Start Command** | `python serve.py` |
