@@ -37,11 +37,28 @@ MODE_REFRESH = "refresh"
 
 
 def _city_options(config: dict) -> list[dict]:
-    """城市下拉選單的內容，A 到 Z 排序，有費率的標示出來。"""
-    with_fare = {c for c in config.get("taxi_fare", {}) if c != "default"}
-    names = with_fare | set(config.get("ui", {}).get("suggested_cities", []))
-    return [{"name": n, "has_fare": n in with_fare}
-            for n in sorted(names, key=str.casefold)]
+    """
+    城市下拉選單的內容，A 到 Z 排序。
+
+    費率標示要同時看城市與國家兩層 —— 台北的費率填在國家層級（tw），
+    只看城市層級的話它會顯示成「沒有費率」，看起來像資料沒填進去。
+    """
+    city_fares = {c for c in config.get("taxi_fare", {}) if c != "default"}
+    country_fares = set(config.get("taxi_fare_by_country", {}))
+    city_country = config.get("ui", {}).get("cities", {})
+
+    names = city_fares | set(city_country)
+    options = []
+    for name in sorted(names, key=str.casefold):
+        country = city_country.get(name)
+        if name in city_fares:
+            note = "已有費率"
+        elif country and country in country_fares:
+            note = "依國家費率"
+        else:
+            note = ""
+        options.append({"name": name, "note": note})
+    return options
 
 
 def settings_fields(config: dict, submitted=None) -> list[dict]:

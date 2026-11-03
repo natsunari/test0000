@@ -198,7 +198,7 @@
                    autocomplete="off" placeholder="留空＝用預設">
             <datalist id="cities">
               {% for c in city_options %}
-                <option value="{{ c.name }}"{% if c.has_fare %} label="已有費率"{% endif %}>
+                <option value="{{ c.name }}"{% if c.note %} label="{{ c.note }}"{% endif %}>
               {% endfor %}
             </datalist>
             <div class="hint">查計程車費率，建議填。清單裡沒有的直接打也可以。</div>

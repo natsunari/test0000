@@ -215,6 +215,20 @@ base = 3.2
 included_km = 0
 per_km = 2.8
 
+[taxi_fare."Sydney"]
+# 雪梨跳錶費率，白天 06:00–21:59：
+#   起錶 A$5.17（不含里程），前 12 公里每公里 A$2.61
+#
+# ⚠️ 兩點沒有建模，都說明如下：
+#   1. 超過 12 公里後降為 A$2.37/km —— 用不到。單趟上限 $20 美金
+#      換算下來約 5.7 公里就到頂，永遠走不到 12 公里那一段。
+#   2. 夜間 22:00–05:59 漲到 A$3.10/km（約貴 19%）—— 這裡用白天費率。
+#      展期通勤多半在白天；如果你會晚歸，把 per_km 改成 3.10 比較保險。
+currency = "AUD"
+base = 5.17
+included_km = 0
+per_km = 2.61
+
 [taxi_fare."Singapore"]
 currency = "USD"
 base = 3.0
@@ -305,6 +319,18 @@ ca = "CAD"      # 加拿大
 mx = "MXN"      # 墨西哥
 br = "BRL"      # 巴西
 ae = "AED"      # 阿聯
+il = "ILS"      # 以色列
+tr = "TRY"      # 土耳其
+at = "EUR"      # 奧地利
+be = "EUR"      # 比利時
+ie = "EUR"      # 愛爾蘭
+pt = "EUR"      # 葡萄牙
+fi = "EUR"      # 芬蘭
+dk = "DKK"      # 丹麥
+se = "SEK"      # 瑞典
+no = "NOK"      # 挪威
+cz = "CZK"      # 捷克
+pl = "PLN"      # 波蘭
 
 
 # ============================================================
@@ -319,29 +345,97 @@ ae = "AED"      # 阿聯
 #     畫面上會標示出來。要加費率請看 [taxi_fare] 那一區。
 # ============================================================
 [ui]
-suggested_cities = [
-  # 日本
-  "Tokyo", "Urayasu", "Yokohama", "Osaka", "Nagoya", "Kyoto", "Fukuoka",
-  # 東亞
-  "Seoul", "Busan", "Shanghai", "Beijing", "Guangzhou", "Shenzhen",
-  "Hong Kong", "Taipei", "Kaohsiung",
-  # 東南亞與南亞
-  "Singapore", "Bangkok", "Kuala Lumpur", "Jakarta", "Manila",
-  "Ho Chi Minh City", "Hanoi", "New Delhi", "Mumbai", "Bengaluru",
-  # 中東
-  "Dubai", "Abu Dhabi", "Tel Aviv", "Istanbul",
-  # 大洋洲
-  "Sydney", "Melbourne", "Brisbane", "Perth", "Auckland",
-  # 德國（展覽重鎮）
-  "Berlin", "Munich", "Frankfurt", "Dusseldorf", "Hannover", "Cologne",
-  "Hamburg", "Stuttgart", "Nuremberg",
-  # 其他歐洲
-  "London", "Paris", "Amsterdam", "Barcelona", "Madrid", "Milan", "Rome",
-  "Bologna", "Zurich", "Geneva", "Vienna", "Brussels", "Copenhagen",
-  "Stockholm", "Helsinki", "Oslo", "Dublin", "Lisbon", "Prague", "Warsaw",
-  # 北美
-  "New York", "Las Vegas", "Los Angeles", "San Francisco", "Chicago",
-  "Orlando", "Atlanta", "Boston", "Seattle", "Toronto", "Vancouver",
-  # 中南美
-  "Mexico City", "Sao Paulo",
-]
+# 城市下拉建議：城市名稱 → 兩碼國碼。
+#
+# 國碼的用途是讓下拉選單知道「這個城市所在的國家有沒有費率」。
+# 沒有這個對照表的話，台北會顯示成「沒有費率」——
+# 但台灣的費率其實填在 [taxi_fare_by_country.tw] 裡。
+#
+# 清單只是方便選取，沒列到的城市照樣可以自己打。
+[ui.cities]
+# 日本
+"Tokyo" = "jp"
+"Urayasu" = "jp"
+"Yokohama" = "jp"
+"Osaka" = "jp"
+"Nagoya" = "jp"
+"Kyoto" = "jp"
+"Fukuoka" = "jp"
+# 東亞
+"Seoul" = "kr"
+"Busan" = "kr"
+"Shanghai" = "cn"
+"Beijing" = "cn"
+"Guangzhou" = "cn"
+"Shenzhen" = "cn"
+"Hong Kong" = "hk"
+"Taipei" = "tw"
+"Kaohsiung" = "tw"
+# 東南亞與南亞
+"Singapore" = "sg"
+"Bangkok" = "th"
+"Kuala Lumpur" = "my"
+"Jakarta" = "id"
+"Manila" = "ph"
+"Ho Chi Minh City" = "vn"
+"Hanoi" = "vn"
+"New Delhi" = "in"
+"Mumbai" = "in"
+"Bengaluru" = "in"
+# 中東
+"Dubai" = "ae"
+"Abu Dhabi" = "ae"
+"Tel Aviv" = "il"
+"Istanbul" = "tr"
+# 大洋洲
+"Sydney" = "au"
+"Melbourne" = "au"
+"Brisbane" = "au"
+"Perth" = "au"
+"Auckland" = "nz"
+# 德國（展覽重鎮）
+"Berlin" = "de"
+"Munich" = "de"
+"Frankfurt" = "de"
+"Dusseldorf" = "de"
+"Hannover" = "de"
+"Cologne" = "de"
+"Hamburg" = "de"
+"Stuttgart" = "de"
+"Nuremberg" = "de"
+# 其他歐洲
+"London" = "gb"
+"Paris" = "fr"
+"Amsterdam" = "nl"
+"Barcelona" = "es"
+"Madrid" = "es"
+"Milan" = "it"
+"Rome" = "it"
+"Bologna" = "it"
+"Zurich" = "ch"
+"Geneva" = "ch"
+"Vienna" = "at"
+"Brussels" = "be"
+"Copenhagen" = "dk"
+"Stockholm" = "se"
+"Helsinki" = "fi"
+"Oslo" = "no"
+"Dublin" = "ie"
+"Lisbon" = "pt"
+"Prague" = "cz"
+"Warsaw" = "pl"
+# 北美
+"New York" = "us"
+"Las Vegas" = "us"
+"Los Angeles" = "us"
+"San Francisco" = "us"
+"Chicago" = "us"
+"Orlando" = "us"
+"Atlanta" = "us"
+"Boston" = "us"
+"Seattle" = "us"
+"Toronto" = "ca"
+"Vancouver" = "ca"
+# 中南美
+"Mexico City" = "mx"
+"Sao Paulo" = "br"

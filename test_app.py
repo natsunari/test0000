@@ -148,6 +148,52 @@ try:
 finally:
     fx.get_rate = original
 
+print("\n--- 雪梨費率（使用者提供的官方跳錶結構）---")
+syd = config["taxi_fare"]["Sydney"]
+check(syd["currency"] == "AUD" and syd["base"] == 5.17 and syd["per_km"] == 2.61,
+      "照官方公告填：起錶 A$5.17、每公里 A$2.61（白天 06:00–21:59）")
+
+class AudRate:
+    value = 1.42      # 實測當時的 US$1 = AUD 1.42
+
+fx.get_rate = lambda *a, **k: AudRate()
+try:
+    syd_usd, problem = fx.fare_to_usd(syd)
+    check(problem is None, "換算成美金成功")
+    default_usd, _ = fx.fare_to_usd(config["taxi_fare"]["default"])
+    detour = config["distance"]["road_detour_factor"]
+
+    # 保守預設值必須在任何用得到的距離都不低於實際費率，否則不算保守
+    for km in (1, 2, 3, 5, 8, 12):
+        road = km * detour
+        d = rules.estimate_fare(road, default_usd)
+        s = rules.estimate_fare(road, syd_usd)
+        check(d >= s, f"{km} 公里：保守預設 ${d:.2f} ≥ 雪梨實際 ${s:.2f}")
+
+    # 填入實際費率會讓可接受的範圍明顯放寬 —— 這正是「完全沒結果」的主因
+    def radius(fare):
+        return (20 - fare["base"]) / fare["per_km"] / detour
+    check(radius(syd_usd) > radius(default_usd) * 1.5,
+          f"單趟 $20 的直線半徑從 {radius(default_usd):.1f} 公里"
+          f"放寬到 {radius(syd_usd):.1f} 公里")
+finally:
+    fx.get_rate = original
+
+check(rules.resolve_fare(config, "Sydney", "au")[1] == "city",
+      "雪梨查得到城市層級費率")
+check(rules.resolve_fare(config, None, "tw")[1] == "country",
+      "台北走國家層級（費率填在 taxi_fare_by_country.tw）")
+
+print("\n--- 城市下拉的費率標示要看城市與國家兩層 ---")
+options = {o["name"]: o["note"] for o in app._city_options(config)}
+check(options.get("Sydney") == "已有費率", "雪梨：城市層級有費率")
+check(options.get("Taipei") == "依國家費率",
+      "台北：城市層級沒有，但國家層級有 —— 不可以顯示成沒費率")
+check(options.get("Kaohsiung") == "依國家費率", "高雄同樣走台灣的國家費率")
+check(options.get("Berlin") == "", "柏林兩層都沒有，不標示")
+names = [o["name"] for o in app._city_options(config)]
+check(names == sorted(names, key=str.casefold), "清單由 A 到 Z 排序")
+
 print(f"\n{'=' * 56}")
 print(f"OK —— {passed} 項檢查全部通過")
 print("=" * 56)
