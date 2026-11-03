@@ -174,6 +174,54 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         geocode.requests.get = _orig
 
+print("\n--- 強制重查要跳過已存地點 ---")
+with tempfile.TemporaryDirectory() as tmp:
+    venues = Path(tmp) / "venues.json"
+    venues.write_text(json.dumps({
+        "14 darling dr, sydney nsw 2000": {
+            "latitude": -33.874, "longitude": 151.201,
+            "label": "舊的（錯的）解析結果",
+            "landmark": "Harajuku Gyoza", "area": "Sydney, Australia",
+            "country_code": "au", "v": geocode.VENUE_SCHEMA,
+        }
+    }, ensure_ascii=False), encoding="utf-8")
+
+    class FreshLookup:
+        status_code = 200
+        @staticmethod
+        def json():
+            return [{"lat": "-33.8745", "lon": "151.2015",
+                     "display_name": "Harajuku Gyoza, 14, Darling Drive, "
+                                     "Haymarket, Sydney, Australia",
+                     "name": "Harajuku Gyoza", "type": "restaurant",
+                     "address": {"city": "Sydney", "country": "Australia",
+                                 "country_code": "au"}}]
+
+    _orig = geocode.requests.get
+    geocode._last_request_at = 0.0
+    geocode.requests.get = lambda *a, **k: FreshLookup()
+    try:
+        # 不加 refresh：讀存檔，拿到舊的（錯的）結果
+        stale = geocode.resolve("14 Darling Dr, Sydney NSW 2000", venues_path=venues)
+        check(stale.landmark == "Harajuku Gyoza" and stale.source == "已存地點",
+              "一般搜尋會沿用已存地點（這是刻意的，省下對方的負擔）")
+
+        # 加 refresh：跳過存檔重查
+        fresh = geocode.resolve("14 Darling Dr, Sydney NSW 2000",
+                                venues_path=venues, refresh=True)
+        check("重查" in fresh.source, f"強制重查時來源標示為「{fresh.source}」")
+        check(fresh.landmark is None,
+              "重查後餐廳不再被當成地標")
+        check(not fresh.label.startswith("Harajuku Gyoza"),
+              f"顯示文字也不再以店名開頭 →「{fresh.label[:40]}」")
+        check(fresh.label.startswith("14, Darling Drive"),
+              "開頭改成真正的地址")
+        saved = json.loads(venues.read_text(encoding="utf-8"))
+        check(saved["14 darling dr, sydney nsw 2000"]["landmark"] is None,
+              "重查的結果會覆蓋掉存檔裡的舊值")
+    finally:
+        geocode.requests.get = _orig
+
 print("\n--- 反查要優先取地標名稱，而不是城市 ---")
 # 查飯店時「Taipei 101」比「台北市, 台灣」好用 ——
 # Google 會把結果集中在地標附近，用城市搜則散到整座城市。

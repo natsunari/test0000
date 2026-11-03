@@ -253,7 +253,8 @@ def home():
 
     # ---- 1. 目的地轉座標 ----
     try:
-        place = DEMO_PLACE if is_demo else geocode.resolve(form["destination"])
+        place = DEMO_PLACE if is_demo else geocode.resolve(
+            form["destination"], refresh=form["mode"] == MODE_REFRESH)
     except LookupError as exc:
         return page(form=form, error=str(exc), config=config)
 

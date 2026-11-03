@@ -299,12 +299,17 @@ def _throttle() -> None:
 
 
 def resolve(text: str, *, allow_network: bool = True,
-            venues_path: Path | None = None) -> Place:
+            venues_path: Path | None = None,
+            refresh: bool = False) -> Place:
     """
     把使用者輸入的目的地轉成座標。
 
     順序：座標 → 已存地點 → 連網查詢。
     查不到會丟出 LookupError，呼叫端負責顯示友善訊息。
+
+    refresh=True 時跳過已存地點直接重查。畫面上的「強制重查」要連
+    目的地一起重新解析 —— 否則使用者看到的還是上次那筆（可能是錯的）
+    解析結果，而「強制」兩個字就名不副實了。
     """
     text = (text or "").strip()
     if not text:
@@ -326,7 +331,8 @@ def resolve(text: str, *, allow_network: bool = True,
         return Place(lat, lon, label, source, country, area, landmark)
 
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
-    saved = load_venues(venues_path).get(text.lower())
+    saved = None if (refresh and allow_network) else \
+        load_venues(venues_path).get(text.lower())
     if saved:
         place = Place(saved["latitude"], saved["longitude"],
                       saved["label"], "已存地點", saved.get("country_code"),
@@ -361,7 +367,11 @@ def resolve(text: str, *, allow_network: bool = True,
     attempts = query_variants(text)
     for candidate in attempts:
         try:
-            return _query_nominatim(candidate)
+            place = _query_nominatim(candidate)
+            if refresh:
+                save_venue(text, place, venues_path)   # 覆蓋掉舊的
+                place.source = "OpenStreetMap（已重查）"
+            return place
         except NotFound:
             continue        # 這個寫法查不到，換下一個簡化版本
         except ServiceError:
@@ -422,7 +432,16 @@ def _query_nominatim(text: str) -> Place:
 
     top = results[0]
     address = top.get("address") or {}
-    return Place(float(top["lat"]), float(top["lon"]),
-                 top.get("display_name", text), "OpenStreetMap",
+    landmark = _poi_name(top, address)
+    label = top.get("display_name", text)
+
+    # Nominatim 的 display_name 會把那個地址上的店家放在最前面。
+    # 既然我們已經判定它不是地標，畫面上也不該讓它當開頭 ——
+    # 「Harajuku Gyoza, 14, Darling Drive…」看起來就像解析錯了。
+    rejected = top.get("name")
+    if not landmark and rejected and label.startswith(f"{rejected}, "):
+        label = label[len(rejected) + 2:]
+
+    return Place(float(top["lat"]), float(top["lon"]), label, "OpenStreetMap",
                  address.get("country_code"), _area_from_address(address),
-                 _poi_name(top, address))
+                 landmark)
