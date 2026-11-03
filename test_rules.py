@@ -31,17 +31,19 @@ def check(condition, description):
     print(f"  ✅ {description}")
 
 
-def ev(h, city="Tokyo", cfg=None, country="jp"):
+# 測試邏輯用固定的費率，不要讀 config.toml 的實際數字 ——
+# 否則每次更新某個城市的費率，一堆不相干的測試就會跟著壞掉。
+TEST_FARE = {"currency": "USD", "base": 3.2, "included_km": 0, "per_km": 2.8}
+
+
+def ev(h, cfg=None, fare=None, source="city"):
     """
     測試用的簡寫。
 
-    evaluate() 現在收的是「已經換算成美金的費率」，換匯要連網，
-    所以由呼叫端準備。測試用的費率本來就是美金，直接傳進去即可。
+    evaluate() 收的是「已經換算成美金的費率」—— 換匯要連網，
+    所以由呼叫端準備好再傳進來。
     """
-    cfg = cfg or config
-    fare, source = resolve_fare(cfg, city, country)
-    assert fare["currency"] == "USD", "測試資料應該用美金費率，才不需要連網換匯"
-    return evaluate(h, BIG_SIGHT, cfg, fare, source)
+    return evaluate(h, BIG_SIGHT, cfg or config, fare or TEST_FARE, source)
 
 
 def hotel(**overrides):
@@ -83,24 +85,30 @@ check(resolve_fare(config, "Tokyo", "jp")[1] == "city", "有城市資料時用�
 check(resolve_fare(config, None, "tw")[1] == "country", "沒有城市就找國家")
 check(resolve_fare(config, "Taipei", "tw")[1] == "country",
       "城市沒登記但國家有，就用國家（台北市不在城市表裡）")
-check(resolve_fare(config, None, "de")[1] == "default", "國家也沒有就用保守預設值")
+check(resolve_fare(config, None, "zz")[1] == "default",
+      "國家也沒有費率資料時用保守預設值")
 check(resolve_fare(config, None, None)[1] == "default", "完全不知道在哪也有預設值")
 check(resolve_fare(config, "Tokyo", "tw")[1] == "city", "城市優先於國家")
 
-print("\n--- 預設費率必須在任何距離都夠保守 ---")
-# 這條測試是因為真的踩過坑：原本的預設值 $3.5 + $2.5/km 起跳比東京高、
-# 但每公里比東京低，所以超過 1 公里之後反而「低估」車資，
-# 會讓使用者以為沒超標、實際上超了。起跳與每公里兩個數字要一起看。
+print("\n--- 預設費率不可以低於已知城市（1 公里以上）---")
+# 這條測試是因為真的踩過坑：原本的預設值起跳比東京高、但每公里比東京低，
+# 超過 1 公里之後反而「低估」車資，會讓人以為沒超標、實際上超了。
+#
+# 只從 1 公里開始比對。拉斯維加斯起錶 $5.50 比預設值高，所以 0.5 公里時
+# 預設值確實比較低 —— 但那個距離的車資只有六塊多，離 $20 上限還很遠，
+# 而且 600 公尺以內本來就算走得到、根本不搭車。真正會卡到上限的是長程，
+# 那一段由每公里費率主導。
 default_fare = config["taxi_fare"]["default"]
-# 城市與國家的費率都要比對。國家那組是當地幣別，換算需要連網，
-# 所以這裡只比對同樣用美金寫的城市費率。
-cities = {k: v for k, v in config["taxi_fare"].items()
-          if k != "default" and v.get("currency") == "USD"}
-for km in (0.5, 1, 2, 5, 10, 15, 20):
+usd_cities = {k: v for k, v in config["taxi_fare"].items()
+              if k != "default" and v.get("currency") == "USD"}
+check(len(usd_cities) >= 5, f"有 {len(usd_cities)} 個用美金計價的城市可以直接比對")
+for km in (1, 2, 5, 10, 15, 20):
     d = estimate_fare(km, default_fare)
-    for name, fare in cities.items():
+    for name, fare in usd_cities.items():
         check(d >= estimate_fare(km, fare) - 1e-9,
               f"{km:>4} km：預設 ${d:.2f} ≥ {name} ${estimate_fare(km, fare):.2f}")
+check(default_fare["per_km"] >= max(f["per_km"] for f in usd_cities.values()),
+      "預設的每公里費率不低於任何已知城市 —— 長程由這一項主導")
 
 print("\n--- 設施三態判定（本專案最關鍵的邏輯）---")
 ac = config["amenity_match"]["air_conditioning"]
@@ -113,33 +121,28 @@ check(check_amenity(None, None, ac) == UNKNOWN, "完全沒有設施資料 → �
 check(check_amenity(["AIR CONDITIONING"], [], ac) == YES, "大小寫不同也比對得到")
 
 print("\n--- 淘汰規則 ---")
-v = ev(hotel(type="vacation rental"), "Tokyo")
+v = ev(hotel(type="vacation rental"))
 check(not v.passed and any("住宿類型" in x for x in v.rejected_for),
       "民宿／短租公寓被淘汰（你的資料裡真的混進 2 筆）")
 check(v.wrong_type, "並標記 wrong_type，讓畫面整筆隱藏而不是放進「已排除」")
-check(not ev(hotel(), "Tokyo").wrong_type,
+check(not ev(hotel()).wrong_type,
       "正常飯店不會被誤標")
 
-v = ev(hotel(rate_per_night={"extracted_display_price": 250}),
-             BIG_SIGHT, config, "Tokyo")
+v = ev(hotel(rate_per_night={"extracted_display_price": 250}))
 check(not v.passed, "每晚 $250 超過 $180 上限 → 淘汰")
 
-v = ev(hotel(rate_per_night={"extracted_display_price": 176}),
-             BIG_SIGHT, config, "Tokyo")
+v = ev(hotel(rate_per_night={"extracted_display_price": 176}))
 check(not v.passed,
       "每晚 $176 看似安全，加 3% 緩衝後 $181.28 超標 → 淘汰（邊緣案例）")
 
-v = ev(hotel(rate_per_night={"extracted_display_price": 170}),
-             BIG_SIGHT, config, "Tokyo")
+v = ev(hotel(rate_per_night={"extracted_display_price": 170}))
 check(v.passed, "每晚 $170 加緩衝後 $175.10 仍在上限內 → 通過")
 
-v = ev(hotel(gps_coordinates={"latitude": 35.99, "longitude": 139.79}),
-             BIG_SIGHT, config, "Tokyo")
+v = ev(hotel(gps_coordinates={"latitude": 35.99, "longitude": 139.79}))
 check(not v.passed and any("單趟" in x for x in v.rejected_for),
       "距離太遠、單趟車資超標 → 淘汰")
 
-v = ev(hotel(amenities=[], excluded_amenities=["No elevator"]),
-             BIG_SIGHT, config, "Tokyo")
+v = ev(hotel(amenities=[], excluded_amenities=["No elevator"]))
 check(not v.passed and any("電梯" in x for x in v.rejected_for),
       "明確標示沒有電梯 → 淘汰")
 
@@ -227,7 +230,7 @@ check(any("你設的下限" in x for x in v.rejected_for),
       "淘汰原因明說是「你設的」下限，不是固定規則")
 
 print("\n--- 保留規則：「不知道」絕不可淘汰 ---")
-v = ev(hotel(), "Tokyo")
+v = ev(hotel())
 check(v.passed, "沒標冷氣與電梯的飯店仍然合格（本專案最重要的一條）")
 # 冷氣在 config 裡設為「沒標就推定有」，所以不列入待確認；
 # 電梯沒有設推定，維持「不知道」並列入待確認。
@@ -236,8 +239,7 @@ check(v.amenities["elevator"] == ASSUMED, "電梯依設定推定為有")
 check(not v.to_confirm, "兩項都推定時，待確認清單是空的")
 check(ASSUMED != YES, "「推定有」與「有」是不同狀態，不會混充成已查證")
 # 推定只影響「沒寫」的情況。明確寫「沒有」仍然要淘汰，否則推定就變成忽視資料了。
-no_lift = ev(hotel(amenities=[], excluded_amenities=["No elevator"]),
-                   BIG_SIGHT, config, "Tokyo")
+no_lift = ev(hotel(amenities=[], excluded_amenities=["No elevator"]))
 check(not no_lift.passed,
       "即使設定成推定有，明確標示「沒有電梯」的仍然被淘汰")
 # 關掉推定就回到待確認
@@ -248,54 +250,52 @@ v2 = ev(hotel(), cfg=strict)
 check(v2.amenities["elevator"] == UNKNOWN, "關掉推定後電梯回到「不知道」")
 check(any("電梯" in x for x in v2.to_confirm), "並重新列入待確認")
 
-v = ev(hotel(gps_coordinates=None), "Tokyo")
+v = ev(hotel(gps_coordinates=None))
 check(v.passed and any("座標" in x for x in v.to_confirm),
       "沒有座標不淘汰，只標記無法計算交通費")
 
 print("\n--- 空房判斷 ---")
-v = ev(hotel(rate_per_night=None), "Tokyo")
+v = ev(hotel(rate_per_night=None))
 check(not v.passed and any("空房" in x for x in v.rejected_for),
       "沒有價格 → 研判沒空房 → 排除（你的資料有 2 筆缺價格）")
 check(not v.has_availability, "has_availability 標記為 False")
-check(ev(hotel(), "Tokyo").has_availability,
+check(ev(hotel()).has_availability,
       "有價格的飯店標記為有空房")
 
 relaxed = deepcopy(config)
 relaxed["availability"]["require"] = False
-v = ev(hotel(rate_per_night=None), BIG_SIGHT, relaxed, "Tokyo")
+v = ev(hotel(rate_per_night=None), relaxed)
 check(v.passed and any("價格" in x for x in v.to_confirm),
       "把 require 設成 false 時，改為保留並標記待確認")
 
 print("\n--- 走路可達與每日總花費 ---")
-v = ev(hotel(), "Tokyo")
+v = ev(hotel())
 check(config["distance"]["walking_max_km"] == 0.6, "走路門檻固定為 600 公尺")
 check(v.walkable, "距離 470 公尺 → 走得到")
 # 780 公尺超過 600 門檻，即使只差一點也算要搭車 —— 門檻就是門檻
-far = ev(hotel(gps_coordinates={"latitude": 35.6323868, "longitude": 139.7895918}),
-               BIG_SIGHT, config, "Tokyo")
+far = ev(hotel(gps_coordinates={"latitude": 35.6323868, "longitude": 139.7895918}))
 check(not far.walkable, "距離 780 公尺 → 超過門檻，算要搭車")
 check(v.total_daily_usd == v.price_usd,
       f"走得到的話交通費算 0，每日總花費 = 房價 ${v.price_usd:.0f}")
 
 v = ev(hotel(gps_coordinates={"latitude": 35.6578741, "longitude": 139.8189755},
-                   rate_per_night={"extracted_display_price": 70}),
-             BIG_SIGHT, config, "Tokyo")
+                   rate_per_night={"extracted_display_price": 70}))
 check(not v.walkable, "距離 4.91 公里 → 走不到")
 check(abs(v.total_daily_usd - (70 + v.fare_per_day)) < 0.01,
       f"走不到就要加交通費，每日總花費 ${v.total_daily_usd:.2f}")
 
 print("\n--- 加分條件 ---")
-v = ev(hotel(amenities=["Free breakfast"]), "Tokyo")
+v = ev(hotel(amenities=["Free breakfast"]))
 check(v.bonuses["breakfast"] == YES and v.passed, "有早餐會記錄，且不影響合格與否")
-v = ev(hotel(amenities=[]), "Tokyo")
+v = ev(hotel(amenities=[]))
 check(v.bonuses["breakfast"] == UNKNOWN and v.passed,
       "沒早餐資料也不淘汰（實測 20 間沒有任何一間標早餐）")
 
 print("\n--- 費率預設值提醒 ---")
-v = ev(hotel(), "沒填過的城市")
+v = ev(hotel(), source="default")
 check(v.fare_is_default and any("費率" in x for x in v.to_confirm),
       "沒填費率的城市會用保守預設值並提醒")
-check(not ev(hotel(), "Tokyo").fare_is_default,
+check(not ev(hotel()).fare_is_default,
       "已填費率的城市不會誤報")
 
 print("\n--- 排序（D 方案：走路可達優先，其餘照每日總花費）---")
@@ -321,8 +321,7 @@ real = [
 ]
 results = [
     ev(hotel(name=n, rate_per_night={"extracted_display_price": p},
-                   gps_coordinates={"latitude": la, "longitude": lo}),
-             BIG_SIGHT, config, "Tokyo")
+                   gps_coordinates={"latitude": la, "longitude": lo}))
     for n, p, la, lo in real
 ]
 ordered = sorted(results, key=sort_key)

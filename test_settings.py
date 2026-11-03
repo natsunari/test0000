@@ -41,14 +41,15 @@ def good_form(**overrides):
 
 
 config = rules.load_config()
-TOKYO_FARE, TOKYO_SOURCE = rules.resolve_fare(config, "Tokyo", "jp")
 dest = (35.6298, 139.7954)      # 東京國際展示場，當作測試用的目的地
+
+# 固定的測試費率。不讀 config.toml 的實際數字 ——
+# 否則更新某個城市的費率就會害一堆不相干的測試跟著壞掉。
+TEST_FARE = {"currency": "USD", "base": 3.2, "included_km": 0, "per_km": 2.8}
 
 
 def ev(h, cfg=None):
-    cfg = cfg or config
-    fare, source = rules.resolve_fare(cfg, "Tokyo", "jp")
-    return rules.evaluate(h, dest, cfg, fare, source)
+    return rules.evaluate(h, dest, cfg or config, TEST_FARE, "city")
 
 print("\n--- 表單解析：合法的值 ---")
 values, problem = settings.parse_form(good_form())

@@ -210,7 +210,11 @@ check(options.get("Sydney") == "已有費率", "雪梨：城市層級有費率")
 check(options.get("Taipei") == "依國家費率",
       "台北：城市層級沒有，但國家層級有 —— 不可以顯示成沒費率")
 check(options.get("Kaohsiung") == "依國家費率", "高雄同樣走台灣的國家費率")
-check(options.get("Berlin") == "", "柏林兩層都沒有，不標示")
+check(options.get("Vienna") == "",
+      "維也納兩層都沒有費率資料（查不到可靠來源），不標示")
+covered = sum(1 for v in options.values() if v)
+check(covered >= 45,
+      f"{covered} / {len(options)} 個城市有費率（城市或國家層級）")
 names = [o["name"] for o in app._city_options(config)]
 check(names == sorted(names, key=str.casefold), "清單由 A 到 Z 排序")
 

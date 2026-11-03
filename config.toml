@@ -170,23 +170,32 @@ buffer_percent = 3
 #  這是用來刷掉明顯超標的飯店，不是報帳用的。
 # ============================================================
 [taxi_fare.default]
-# 找不到城市也找不到國家時用這組。刻意估貴，寧可誤報超標也不要讓你超支。
+# 找不到城市也找不到國家時用這組。
 #
-# ⚠️ 這組數字必須在任何距離都不低於底下列出的每一個地區，否則就不算保守。
-#    test_rules.py 有一條測試會逐一比對，改這些數字前請先跑過測試。
+# ⚠️ 沒有任何一組數字能在全世界都「保守」—— 蘇黎世、倫敦的每公里費率
+#    都比這組高，而曼谷只有這組的十分之一。所以這是「大致偏上」的估計，
+#    不是保證。用到它的時候畫面會明確標示，請去查當地實際費率補上。
+#
+# 這組數字必須至少不低於下面所有用美金計價的城市（1 公里以上），
+# test_app.py 有測試會檢查。
 currency = "USD"
-base = 4.0
+base = 5.00
 included_km = 0
-per_km = 3.2
+per_km = 2.60
 
 
 # ------------------------------------------------------------
 #  依國家（用 OpenStreetMap 回傳的兩碼國碼）
 #
-#  ⚠️ 這裡只放「有來源可查證」的數字。
-#     我不會憑印象填其他國家 —— 填低了會讓你以為沒超標、實際上超了，
-#     那比留著保守預設值危險得多。
-#     你去過哪個國家，就把當地的實際費率加一筆進來。
+#  ⚠️ 以下除了台灣是使用者提供的官方公告，其餘都是 2026-11 網路查證的
+#     「估計值」，來源常互相矛盾。遇到矛盾時一律取較高者 ——
+#     估貴只會讓飯店被誤判成超標，估便宜會讓你真的超支。
+#     去過之後請換成你實際搭車的費率。
+#
+#  查不到可靠資料的國家刻意留空，寧可用保守預設值也不憑印象填。
+#  目前留空的有：馬來西亞、印尼、菲律賓、越南、印度、以色列、土耳其、
+#  紐西蘭、義大利、瑞士、奧地利、比利時、北歐各國、愛爾蘭、葡萄牙、
+#  捷克、波蘭、墨西哥、巴西。
 # ------------------------------------------------------------
 [taxi_fare_by_country.tw]
 # 台北市計程車日間費率（06:00–23:00），依台北市公運處公告：
@@ -197,50 +206,276 @@ base = 85
 included_km = 1.25
 per_km = 25
 
+[taxi_fare_by_country.jp]
+# 以東京費率涵蓋全日本，其他城市多半較便宜
+currency = "JPY"
+base = 470
+included_km = 0
+per_km = 430
+[taxi_fare_by_country.kr]
+# 以首爾費率涵蓋全韓國
+currency = "KRW"
+base = 4800
+included_km = 1.6
+per_km = 763
+[taxi_fare_by_country.cn]
+# 取已查到的中國城市中最貴者（上海）
+currency = "CNY"
+base = 14
+included_km = 3
+per_km = 2.7
+[taxi_fare_by_country.hk]
+# 紅色的士
+currency = "HKD"
+base = 29
+included_km = 2
+per_km = 10.5
+[taxi_fare_by_country.sg]
+currency = "SGD"
+base = 4.4
+included_km = 0
+per_km = 0.7
+[taxi_fare_by_country.th]
+currency = "THB"
+base = 35
+included_km = 1
+per_km = 6.5
+[taxi_fare_by_country.ae]
+# 以杜拜費率涵蓋阿聯
+currency = "AED"
+base = 5.0
+included_km = 0
+per_km = 2.45
+[taxi_fare_by_country.de]
+# 取已查到的德國城市中最貴者（科隆），涵蓋杜塞道夫、漢諾威等未查到的城市
+currency = "EUR"
+base = 4.9
+included_km = 0
+per_km = 2.9
+[taxi_fare_by_country.gb]
+# 以倫敦費率涵蓋英國
+currency = "GBP"
+base = 4.4
+included_km = 0
+per_km = 3.1
+[taxi_fare_by_country.fr]
+# 以巴黎費率涵蓋法國
+currency = "EUR"
+base = 4.18
+included_km = 0
+per_km = 1.9
+[taxi_fare_by_country.es]
+# 取馬德里與巴塞隆納各項較高者
+currency = "EUR"
+base = 2.75
+included_km = 0
+per_km = 1.35
+[taxi_fare_by_country.nl]
+# 荷蘭法定上限
+currency = "EUR"
+base = 4.31
+included_km = 0
+per_km = 3.17
+[taxi_fare_by_country.au]
+# 以雪梨費率涵蓋澳洲，涵蓋布里斯本、伯斯等
+currency = "AUD"
+base = 5.17
+included_km = 0
+per_km = 2.61
+[taxi_fare_by_country.ca]
+# 取多倫多與溫哥華各項較高者
+currency = "CAD"
+base = 4.25
+included_km = 0
+per_km = 2.23
+[taxi_fare_by_country.us]
+# 取已查到的美國城市中各項最高者，涵蓋奧蘭多、波士頓等
+currency = "USD"
+base = 5.5
+included_km = 0
+per_km = 2.18
 
 # ------------------------------------------------------------
 #  依城市（比國家優先）
-#  以下為粗估值，不是官方公告，去過之後請換成實際數字。
 # ------------------------------------------------------------
-[taxi_fare."Tokyo"]
-currency = "USD"
-base = 3.2
-included_km = 0
-per_km = 2.8
-
-[taxi_fare."Urayasu"]
-# 東京迪士尼所在地（千葉縣浦安市），費率與東京都會區相近
-currency = "USD"
-base = 3.2
-included_km = 0
-per_km = 2.8
-
 [taxi_fare."Sydney"]
-# 雪梨跳錶費率，白天 06:00–21:59：
-#   起錶 A$5.17（不含里程），前 12 公里每公里 A$2.61
-#
-# ⚠️ 兩點沒有建模，都說明如下：
-#   1. 超過 12 公里後降為 A$2.37/km —— 用不到。單趟上限 $20 美金
-#      換算下來約 5.7 公里就到頂，永遠走不到 12 公里那一段。
-#   2. 夜間 22:00–05:59 漲到 A$3.10/km（約貴 19%）—— 這裡用白天費率。
-#      展期通勤多半在白天；如果你會晚歸，把 per_km 改成 3.10 比較保險。
+# 雪梨跳錶費率，白天 06:00–21:59：起錶 A$5.17，前 12 公里每公里 A$2.61。
+# 超過 12 公里降為 A$2.37/km —— 用不到，單趟上限 $20 約 5.7 公里就到頂。
+# 夜間 22:00–05:59 漲到 A$3.10/km（約貴 19%），晚歸的話改這個數字比較保險。
 currency = "AUD"
 base = 5.17
 included_km = 0
 per_km = 2.61
 
+[taxi_fare."Urayasu"]
+# 東京迪士尼所在地（千葉縣浦安市），費率與東京都會區相近
+currency = "JPY"
+base = 470
+included_km = 0
+per_km = 430
+
+[taxi_fare."Tokyo"]
+# gobytaxi 2026 彙整
+currency = "JPY"
+base = 470
+included_km = 0
+per_km = 430
+[taxi_fare."Seoul"]
+# 首爾市公告（2023-02 起），之後每 131 公尺 100 韓元
+currency = "KRW"
+base = 4800
+included_km = 1.6
+per_km = 763
+[taxi_fare."Beijing"]
+# 北京市交通委標準，夜間加成 20% 未計入
+currency = "CNY"
+base = 13
+included_km = 3
+per_km = 2.3
+[taxi_fare."Shanghai"]
+# 上海市標準，夜間加成 30%、超過 15 公里加成 50% 未計入
+currency = "CNY"
+base = 14
+included_km = 3
+per_km = 2.7
+[taxi_fare."Guangzhou"]
+# 廣州市政府指導價，可浮動 ±10%
+currency = "CNY"
+base = 12
+included_km = 3
+per_km = 2.6
+[taxi_fare."Hong Kong"]
+# 運輸署紅色的士（2024-07-14 起），每 200 公尺 2.1 元
+currency = "HKD"
+base = 29
+included_km = 2
+per_km = 10.5
 [taxi_fare."Singapore"]
+# LTA 標準計程車起錶與里程費
+currency = "SGD"
+base = 4.4
+included_km = 0
+per_km = 0.7
+[taxi_fare."Bangkok"]
+# 陸運廳費率（2023-01 起），1–10 公里段
+currency = "THB"
+base = 35
+included_km = 1
+per_km = 6.5
+[taxi_fare."Dubai"]
+# RTA 日間（06:00–22:00），夜間起錶 5.50
+currency = "AED"
+base = 5.0
+included_km = 0
+per_km = 2.45
+[taxi_fare."Berlin"]
+# Taxi-Innung Berlin，前 3 公里費率（之後遞減）
+currency = "EUR"
+base = 4.3
+included_km = 0
+per_km = 2.8
+[taxi_fare."Munich"]
+# 慕尼黑市費率
+currency = "EUR"
+base = 5.9
+included_km = 0
+per_km = 2.7
+[taxi_fare."Frankfurt"]
+# 法蘭克福費率（2025 年版）
+currency = "EUR"
+base = 4.0
+included_km = 0
+per_km = 2.4
+[taxi_fare."Cologne"]
+# 科隆費率（2026-06-01 起）
+currency = "EUR"
+base = 4.9
+included_km = 0
+per_km = 2.9
+[taxi_fare."Hamburg"]
+# 漢堡費率區間取上緣
+currency = "EUR"
+base = 5.0
+included_km = 0
+per_km = 2.8
+[taxi_fare."London"]
+# 倫敦費率（2026-04-25 起）
+currency = "GBP"
+base = 4.4
+included_km = 0
+per_km = 3.1
+[taxi_fare."Paris"]
+# 巴黎接送費＋每公里上緣（夜間／郊區費率）
+currency = "EUR"
+base = 4.18
+included_km = 0
+per_km = 1.9
+[taxi_fare."Madrid"]
+# 馬德里日間 Tarifa 1，夜間起錶 3.00
+currency = "EUR"
+base = 2.5
+included_km = 0
+per_km = 1.35
+[taxi_fare."Barcelona"]
+# 巴塞隆納費率，來源分歧取較高者
+currency = "EUR"
+base = 2.75
+included_km = 0
+per_km = 1.32
+[taxi_fare."Amsterdam"]
+# 荷蘭法定上限（實際多為 3.50＋1.80~2.40）
+currency = "EUR"
+base = 4.31
+included_km = 0
+per_km = 3.17
+[taxi_fare."Melbourne"]
+# 維多利亞州日間費率（2026-07-01 起）
+currency = "AUD"
+base = 5.4
+included_km = 0
+per_km = 2.1
+[taxi_fare."Toronto"]
+# 多倫多市 Municipal Licensing & Standards
+currency = "CAD"
+base = 4.25
+included_km = 0
+per_km = 1.97
+[taxi_fare."Vancouver"]
+# Numbeo 群眾回報，非官方公告
+currency = "CAD"
+base = 3.75
+included_km = 0
+per_km = 2.23
+[taxi_fare."New York"]
+# 每英里 $3.50 換算（÷1.609）
 currency = "USD"
 base = 3.0
 included_km = 0
-per_km = 1.5
-
-[taxi_fare."Bangkok"]
+per_km = 2.18
+[taxi_fare."Las Vegas"]
+# 內華達州計程車管理局（2026-04-09 起），每英里 $3.34
 currency = "USD"
-base = 1.1
+base = 5.5
 included_km = 0
-per_km = 0.5
-
+per_km = 2.08
+[taxi_fare."Chicago"]
+# 芝加哥（2026-07-01 起），每英里 $2.79
+currency = "USD"
+base = 3.25
+included_km = 0
+per_km = 1.73
+[taxi_fare."Los Angeles"]
+# 每英里 $3.51 換算
+currency = "USD"
+base = 3.65
+included_km = 0
+per_km = 2.18
+[taxi_fare."San Francisco"]
+# 每英里 $3.25 換算
+currency = "USD"
+base = 4.15
+included_km = 0
+per_km = 2.02
 
 # ============================================================
 #  設施字串比對表
