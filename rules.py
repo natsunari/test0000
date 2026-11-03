@@ -318,12 +318,10 @@ def evaluate(hotel: dict, destination: tuple[float, float],
                 f"來回約 ${v.fare_per_day:.2f}，"
                 f"超過每日上限 ${budget['taxi_max_per_day_usd']:g}"
             )
-        if is_default:
-            note = ("取不到匯率，無法把當地費率換算成美金，暫時用保守預設值"
-                    if fare_source == "fx_failed"
-                    else "這個地區還沒填計程車費率，用的是保守預設值")
-            v.to_confirm.append(note)
-            v.notes.append(note)
+        # 費率是估的這件事，是整次搜尋共通的狀況，不是某一間飯店的問題。
+        # 以前把它寫進 to_confirm，結果只要某地沒費率，所有飯店都被推進
+        # 「待確認」，「完全符合」永遠是 0 筆；每張卡片還重複同一句話。
+        # 現在只留 fare_is_default 這個旗標，由畫面在最上面講一次。
 
     # --- 3b. 每日總花費：房價 + 當日交通費（走得到的話交通費算 0）---
     if v.price_usd is not None:

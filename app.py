@@ -371,7 +371,17 @@ def home():
     local_currency = fx.currency_for_country(
         place.country_code, config.get("currency_by_country", {}))
     rate = fx.get_rate(local_currency) if local_currency else None
-    if rate:
+    # 匯率失敗會同時影響「當地貨幣」和「計程車費率」。
+    # 以前這兩件事各講一次、費率那邊還講兩次，同一個原因被重複三遍。
+    if not rate and fare_source == "fx_failed" and local_currency:
+        fx_warning = (
+            f"取不到 {local_currency} 匯率，所以當地貨幣沒有顯示，"
+            f"計程車費率也改用保守估計。可以跑 python check_fx.py 檢查哪個來源有問題。")
+        currency_note = None
+    else:
+        fx_warning = None
+
+    if rate or fx_warning:
         currency_note = None
     elif not place.country_code:
         currency_note = "無法判斷目的地的國家，所以只顯示美金"
@@ -379,10 +389,8 @@ def home():
         currency_note = (f"國碼「{place.country_code}」不在 config.toml 的"
                          f" currency_by_country 對照表裡，所以只顯示美金")
     else:
-        currency_note = (
-            f"取不到 {local_currency} 匯率。歐洲央行只公布約 30 種參考匯率，"
-            f"台幣、越南盾、阿聯迪拉姆都不在裡面，程式會改用備援來源 —— "
-            f"兩邊都失敗時才會看到這行。可以跑 python check_fx.py 檢查。")
+        currency_note = (f"取不到 {local_currency} 匯率，只顯示美金。"
+                         f"可以跑 python check_fx.py 檢查。")
 
     # 查成功的地點存起來，下次同一個展館不用再問 OpenStreetMap
     if not is_demo and place.source == "OpenStreetMap":
@@ -400,7 +408,7 @@ def home():
         rejected=[v for v in verdicts if not v.passed],
         fare_used=fare_used, fare_raw=raw_fare, fare_source=fare_source,
         fare_problem=fare_problem, city_used=city,
-        rate=rate, currency_note=currency_note,
+        rate=rate, currency_note=currency_note, fx_warning=fx_warning,
         ignored=({"destination": form["destination"].strip() or None,
                   "dates": f'{form["check_in"]} ~ {form["check_out"]}'}
                  if is_demo else None),

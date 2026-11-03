@@ -291,28 +291,21 @@ v = ev(hotel(amenities=[]))
 check(v.bonuses["breakfast"] == UNKNOWN and v.passed,
       "沒早餐資料也不淘汰（實測 20 間沒有任何一間標早餐）")
 
-print("\n--- 費率來源要歸對因 ---")
-# 東京有費率（日圓），但換不到匯率時會退回保守預設值。
-# 那時候說「這個地區還沒填費率」是歸錯因，會讓人去填已經填過的東西。
-for source, expect_note, label in [
-    ("city", False, "用城市費率時沒有提醒"),
-    ("country", False, "用國家費率時沒有提醒"),
-    ("default", True, "真的沒資料"),
-    ("fx_failed", True, "有資料但換不了匯"),
-]:
+print("\n--- 費率是估的，不該算在個別飯店頭上 ---")
+# 以前只要某地沒費率，每間飯店都會被加一條待確認，
+# 結果「完全符合」永遠是 0 筆，而且每張卡片重複同一句話。
+# 那是整次搜尋共通的狀況，應該在畫面最上面講一次就好。
+for source in ("city", "country", "default", "fx_failed"):
     v = ev(hotel(), source=source)
-    check(bool(v.notes) == expect_note, label)
-check(any("還沒填" in x for x in ev(hotel(), source="default").notes),
-      "沒資料時說「還沒填費率」")
-check(any("匯率" in x for x in ev(hotel(), source="fx_failed").notes),
-      "換不了匯時說的是匯率問題，不是說沒填費率")
-
-print("\n--- 費率預設值提醒 ---")
-v = ev(hotel(), source="default")
-check(v.fare_is_default and any("費率" in x for x in v.to_confirm),
-      "沒填費率的城市會用保守預設值並提醒")
-check(not ev(hotel()).fare_is_default,
-      "已填費率的城市不會誤報")
+    check(not v.notes, f"來源 {source}：卡片上沒有費率相關的提醒")
+    check(not any("費率" in x or "匯率" in x for x in v.to_confirm),
+          f"來源 {source}：也不會被推進「待確認」")
+check(ev(hotel(), source="default").fare_is_default,
+      "但仍然記錄 fare_is_default，畫面才知道要在上面提醒")
+check(not ev(hotel(), source="city").fare_is_default,
+      "用實際費率時不會誤標")
+check(ev(hotel(), source="fx_failed").fare_is_default,
+      "換匯失敗退回預設值時也算 is_default")
 
 print("\n--- 排序（D 方案：走路可達優先，其餘照每日總花費）---")
 walk_pricey = Verdict(name="走得到但貴", passed=True, price_usd=160,
