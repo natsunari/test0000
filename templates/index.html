@@ -452,7 +452,7 @@
       {%- if hidden_types or hidden_dorms %}，其中
         {%- if hidden_types %} {{ hidden_types }} 筆不是飯店（民宿、露營地等）
         {%- endif %}{% if hidden_types and hidden_dorms %}、{% endif %}
-        {%- if hidden_dorms %} {{ hidden_dorms }} 筆名稱看起來是通舖（青年旅館等）
+        {%- if hidden_dorms %} {{ hidden_dorms }} 筆研判是通舖（名稱或簡介提到青年旅館、共用衛浴等）
         {%- endif %} 已直接略過{% endif %}<br>
       套用的限制：房價
         {%- if config.budget.hotel_min_per_night_usd %}

@@ -328,7 +328,7 @@ def home():
                        fare_used, fare_source)
         for h in data.get("properties", [])
     ]
-    # 不是飯店、或名稱看起來是通舖的，整筆不顯示 ——
+    # 不是飯店、或名稱／簡介研判是通舖的，整筆不顯示 ——
     # 連「已排除」都不用出現，那些本來就不是你的選項
     hidden_types = sum(1 for v in all_verdicts if v.wrong_type)
     hidden_dorms = sum(1 for v in all_verdicts if v.looks_like_dorm)
