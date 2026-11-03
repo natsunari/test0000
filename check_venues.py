@@ -49,8 +49,13 @@ VENUES = [
      "Messezentrum 1, 90471 Nurnberg, Germany", (49.417409, 11.115364)),
     ("SEMICON West", "Moscone Center",
      "747 Howard St, San Francisco, CA 94103, USA", (37.784173, -122.401557)),
+    # 原本這裡寫「Sheikh Zayed Road, Dubai」，結果每次跑出來的點都不一樣，
+    # 跟展館差 14~21 公里 —— 那條路長五十幾公里，沒有門牌號碼的話
+    # OSM 只能從路的任何一段挑一個點給你。這不是程式的問題，是地址太籠統。
+    # 換成會展所在的區（Trade Centre 2），這也是一般人會寫的方式。
     ("GITEX", "Dubai World Trade Centre",
-     "Sheikh Zayed Road, Dubai, United Arab Emirates", None),
+     "Dubai World Trade Centre, Trade Centre 2, Dubai, United Arab Emirates",
+     None),
     # OSM 裡的名字是 Hanover Fairground —— 這是上一次實測從地址查出來的
     ("Hannover Messe", "Hanover Fairground",
      "Messegelande, 30521 Hannover, Germany", None),

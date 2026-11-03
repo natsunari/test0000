@@ -44,35 +44,52 @@ VENUE_SCHEMA = 3
 _MIN_INTERVAL_SECONDS = 1.1
 _last_request_at = 0.0
 
-# 「35.6298, 139.7954」「35.6298 139.7954」「35.6298,139.7954」都接受
-_COORD_RE = re.compile(
-    r"^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$"
-)
+# 座標輸入一律先正規化再比對。
+# 中文輸入法打出來的是全形逗號、全形句點、全形空白，長得像半形但不是同一個字元。
+# 使用者看不出差別，程式卻會整串比對失敗，然後把座標當成地名送出去查。
+_NORMALISE = str.maketrans({
+    "，": ",", "、": ",", "　": " ", "．": ".", "：": ":",
+    "－": "-", "—": "-", "–": "-", "−": "-", "ー": "-",
+    "’": "'", "＇": "'", "′": "'", "”": '"', "＂": '"', "″": '"',
+    "º": "°", "˚": "°", "∘": "°", "Ｎ": "N", "Ｓ": "S", "Ｅ": "E", "Ｗ": "W",
+})
 
-# 度分秒格式：35°37'58"N 139°52'50"E
-# Google Maps 有時候會用這種寫法顯示座標，使用者直接複製就會是這樣。
-_DMS_RE = re.compile(
-    r"""^\s*
-    (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([NSns])
-    \s*[,\s]\s*
-    (\d{1,3})\s*[°d]\s*(\d{1,2})\s*['′]\s*([\d.]+)\s*["″]?\s*([EWew])
-    \s*$""",
+
+def _angle(index: int, letters: str) -> str:
+    """一個角度的比對式。度是必要的，分、秒、半球字母都可有可無。"""
+    return (
+        rf"(?:(?P<h{index}a>[{letters}])\s*)?"      # 半球字母放前面：N35...
+        rf"(?P<sign{index}>-)?"                     # 或者用負號
+        rf"(?P<deg{index}>\d{{1,3}}(?:\.\d+)?)\s*[°d]?\s*"
+        rf"(?:(?P<min{index}>\d{{1,2}}(?:\.\d+)?)\s*['`]\s*"   # 分，可以是小數
+        rf"""(?:(?P<sec{index}>\d{{1,2}}(?:\.\d+)?)\s*["]?\s*)?"""  # 秒可省略
+        rf")?"
+        rf"(?P<h{index}b>[{letters}])?"             # 半球字母放後面：35...N
+    )
+
+
+# 一條式子涵蓋所有寫法，避免每多一種格式就多一條規則、又漏掉其中一種：
+#   25.0339, 121.5645          十進位
+#   33.87230°S 151.19896°E     十進位＋半球字母
+#   N35°37'58" E139°52'50"     度分秒，字母在前
+#   35°37'58"N 139°52'50"E     度分秒，字母在後
+#   35°37.95'N 139°52.83'E     度＋十進位分
+#   35°37'N 139°52'E           度分，沒有秒
+_ANGLE_RE = re.compile(
+    rf"^\s*{_angle(1, 'NSns')}\s*[,\s]\s*{_angle(2, 'EWew')}\s*$",
     re.VERBOSE,
 )
 
 
-# 十進位度數加上半球字母：33.87230°S 151.19896°E
-# Google Maps 的地點資訊面板就是這樣顯示的，使用者直接複製下來會是這個樣子。
-# 沒有這一條的話，整串字會被當成地名送去查，結果不可預測。
-# 度數符號可有可無，字母放前面（S33.87230 E151.19896）也接受。
-_DEC_HEMI_RE = re.compile(
-    r"""^\s*
-    (?:([NSns])\s*)? (\d{1,3}(?:\.\d+)?) \s*[°d]?\s* (?(1)|([NSns]))
-    \s*[,\s]\s*
-    (?:([EWew])\s*)? (\d{1,3}(?:\.\d+)?) \s*[°d]?\s* (?(4)|([EWew]))
-    \s*$""",
-    re.VERBOSE,
-)
+# 短網址裡沒有座標，要連去 Google 展開才看得到。程式不做這件事，
+# 但至少要認出來並告訴使用者怎麼拿到完整網址 ——
+# 丟去 Nominatim 查只會得到一句「找不到這個地點」，使用者會以為是地點的問題。
+_SHORT_MAPS_RE = re.compile(
+    r"^https?://(?:maps\.app\.goo\.gl|goo\.gl/maps|g\.co/kgs)/", re.I)
+
+# Plus Code（例如 4RRH46H2+X2）。Google Maps 會顯示這種碼，
+# 但要解碼需要另一套演算法，這裡只認出來並給替代做法。
+_PLUS_CODE_RE = re.compile(r"^\s*[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,7}\s*$", re.I)
 
 
 # Google Maps 連結裡的座標有好幾種寫法，這些是常見的：
@@ -162,45 +179,48 @@ class Place:
     landmark: str | None = None
 
 
+def _one_angle(sign, deg, minute, sec, h_before, h_after,
+               negative: str) -> float | None:
+    """把一個角度的各個部分合成十進位度數。無法判斷正負就回傳 None。"""
+    letter = h_before or h_after
+    if letter and sign:
+        return None        # 同時寫了 -33 和 S，意思互相矛盾，不猜
+    if h_before and h_after:
+        return None        # N35N，不是正常寫法
+    value = float(deg)
+    if minute is not None:
+        value += float(minute) / 60
+    if sec is not None:
+        value += float(sec) / 3600
+    if sign or (letter and letter.upper() == negative):
+        value = -value
+    return value
+
+
 def parse_coordinates(text: str) -> tuple[float, float] | None:
     """
     看看輸入是不是一組座標。是就回傳 (緯度, 經度)，不是就回傳 None。
-    緯度必須在 -90~90、經度 -180~180，否則視為不是座標。
+
+    接受十進位、十進位加半球字母、度分秒、度分、度加十進位分，
+    半球字母放前面或後面都可以，全形標點會先換成半形。
+
+    緯度必須在 -90~90、經度 -180~180，否則視為不是座標 ——
+    判斷錯誤的代價很高：座標字串會被當成地名送去查，結果可能差上萬公里。
     """
-    text = text or ""
-    dms = _DMS_RE.match(text)
-    if dms:
-        d1, m1, s1, ns, d2, m2, s2, ew = dms.groups()
-        lat = int(d1) + int(m1) / 60 + float(s1) / 3600
-        lon = int(d2) + int(m2) / 60 + float(s2) / 3600
-        if ns.upper() == "S":
-            lat = -lat
-        if ew.upper() == "W":
-            lon = -lon
-        if -90 <= lat <= 90 and -180 <= lon <= 180:
-            return round(lat, 6), round(lon, 6)
-        return None
-
-    hemi = _DEC_HEMI_RE.match(text)
-    if hemi:
-        ns = hemi.group(1) or hemi.group(3)
-        ew = hemi.group(4) or hemi.group(6)
-        lat, lon = float(hemi.group(2)), float(hemi.group(5))
-        if ns.upper() == "S":
-            lat = -lat
-        if ew.upper() == "W":
-            lon = -lon
-        if -90 <= lat <= 90 and -180 <= lon <= 180:
-            return lat, lon
-        return None
-
-    m = _COORD_RE.match(text)
+    text = (text or "").translate(_NORMALISE).strip()
+    m = _ANGLE_RE.match(text)
     if not m:
         return None
-    lat, lon = float(m.group(1)), float(m.group(2))
+    g = m.groupdict()
+    lat = _one_angle(g["sign1"], g["deg1"], g["min1"], g["sec1"],
+                     g["h1a"], g["h1b"], "S")
+    lon = _one_angle(g["sign2"], g["deg2"], g["min2"], g["sec2"],
+                     g["h2a"], g["h2b"], "W")
+    if lat is None or lon is None:
+        return None
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return None
-    return lat, lon
+    return round(lat, 6), round(lon, 6)
 
 
 def _area_from_address(address: dict | None) -> str | None:
@@ -401,6 +421,16 @@ def resolve(text: str, *, allow_network: bool = True,
     text = (text or "").strip()
     if not text:
         raise LookupError("請輸入目的地")
+
+    if _SHORT_MAPS_RE.match(text):
+        raise NotFound(
+            "這是 Google Maps 的短網址，裡面看不到座標。"
+            "請在瀏覽器打開它，等網址列變成完整網址之後再複製一次，"
+            "或直接貼座標（在地圖上按右鍵就能複製）。")
+    if _PLUS_CODE_RE.match(text):
+        raise NotFound(
+            "這是 Plus Code，程式沒辦法把它換成座標。"
+            "請改貼座標，或填展館的英文名稱。")
 
     # 1. 直接是座標（含度分秒格式），或 Google Maps 連結
     coords = parse_coordinates(text)

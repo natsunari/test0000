@@ -138,9 +138,10 @@ def city_mismatch_warning(config: dict, city: str | None,
             f"請確認目的地或城市是不是填錯了。")
 
 
-def hotel_search_query(destination: str, place) -> str:
+def hotel_search_query(destination: str, place, city: str | None = None
+                       ) -> str | None:
     """
-    決定要送給 Google Hotels 的查詢字串。
+    決定要送給 Google Hotels 的查詢字串。查不出可用的字串時回傳 None。
 
     目標：不論使用者輸入「Taipei 101」、英文地址，還是經緯度，
     都要解析到同一個地標，才會找到同一批附近的飯店。
@@ -148,14 +149,20 @@ def hotel_search_query(destination: str, place) -> str:
     優先序：
       1. 解析出來的地標名稱 —— 三種輸入都會走到同一個答案
       2. 使用者打的文字 —— 他打的本來就是名稱時最準
-      3. 「城市, 國家」 —— 最後的退路，結果會散到整座城市
+      3. 「區, 城市, 國家」 —— 反查到的地區
+      4. 城市欄位 —— 連地區都反查不到時，至少還有使用者自己填的城市
 
-    另外跳過含中日韓文字的候選：Google Hotels 用英文查命中率明顯較好，
-    而 Nominatim 常常回傳當地語言的名稱（例如「台北101」）。
+    兩條硬規則：
+      * 座標字串和網址永遠不能送出去。Google 看到座標會憑字面亂猜 ——
+        實際踩過一次，結果出現在 12000 公里外的美國露營地。
+        寧可回 None 讓畫面講清楚，也不要送出去拿回一堆錯的東西。
+      * 含中日韓文字的候選先跳過。Google Hotels 用英文查命中率明顯較好，
+        而 Nominatim 常常回傳當地語言的名稱（例如「台北101」）。
+        全部候選都是中日韓文字時才退而求其次用它 —— 總比沒有好。
     """
     destination = (destination or "").strip()
-    typed_a_name = not (geocode.parse_coordinates(destination)
-                        or geocode.coordinates_from_maps_url(destination))
+    city = (city or "").strip()
+    typed_a_name = not _unusable_as_query(destination)
 
     def with_area(candidate: str) -> str:
         """
@@ -174,13 +181,36 @@ def hotel_search_query(destination: str, place) -> str:
             return candidate
         return f"{candidate}, {area}"
 
-    for candidate in (place.landmark,
-                      destination if typed_a_name else None,
-                      place.area):
-        if candidate and not _CJK_RE.search(candidate):
+    candidates = [place.landmark,
+                  destination if typed_a_name else None,
+                  place.area,
+                  city or None]
+    # 先挑沒有中日韓文字的
+    for candidate in candidates:
+        if candidate and not _unusable_as_query(candidate) \
+                and not _CJK_RE.search(candidate):
             return with_area(candidate)
-    # 全部都含中日韓文字或都沒有時，用有東西的那個，總比送座標字串好
-    return place.landmark or place.area or destination
+    # 全部都含中日韓文字時，用有東西的那個
+    for candidate in candidates:
+        if candidate and not _unusable_as_query(candidate):
+            return with_area(candidate)
+    return None
+
+
+def _unusable_as_query(text: str) -> bool:
+    """
+    這串字不能當成查詢送給 Google Hotels。
+
+    座標和網址都是「給程式看的」，Google 只會憑字面猜，猜出來的東西
+    跟使用者的目的地沒有關係，而且畫面上看起來一切正常。
+    """
+    text = (text or "").strip()
+    if not text:
+        return True
+    if geocode.parse_coordinates(text) or geocode.coordinates_from_maps_url(text):
+        return True
+    lowered = text.lower()
+    return lowered.startswith(("http://", "https://", "www.")) or "://" in lowered
 
 
 def validate(form: dict, is_demo: bool = False) -> str | None:
@@ -291,7 +321,18 @@ def home():
             data, source = search.load_fixture(), "示範資料"
             hotel_query = "Tokyo Big Sight"
         else:
-            hotel_query = hotel_search_query(form["destination"], place)
+            hotel_query = hotel_search_query(form["destination"], place,
+                                             form["city"])
+            if not hotel_query:
+                # 唯一會走到這裡的情況：輸入是座標或網址，而且反查不到
+                # 任何地名、城市欄位也空白。送座標去 Google 只會拿回
+                # 離題幾千公里的結果，所以寧可停在這裡把話講清楚。
+                return page(
+                    form=form, config=config,
+                    error="這組座標反查不到任何地名，所以沒辦法去查飯店。"
+                          "請在「城市」欄填上英文城市名，"
+                          "或把目的地改成展館名稱（例如 ICC Sydney）。")
+
             def run(query):
                 return search.search_hotels(
                     query, form["check_in"], form["check_out"],

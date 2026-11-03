@@ -124,9 +124,12 @@ check(app.hotel_search_query("Taipei 101", no_landmark) == "Taipei 101",
       "沒有地標時，使用者打的名稱優先於城市")
 check(app.hotel_search_query("25.0339, 121.5645", no_landmark) == "Taipei, Taiwan",
       "貼座標又沒有地標時才退回城市")
+# 這一條原本寫的是「什麼都解析不到時回傳原輸入，總比送出空字串好」。
+# 那個假設是錯的：原輸入是座標字串，送給 Google 只會拿回離題幾千公里的
+# 結果，而且畫面看起來一切正常。回 None 讓畫面把話講清楚才對。
 check(app.hotel_search_query("25.0339, 121.5645",
-                             geocode.Place(1, 2, "l", "s")) == "25.0339, 121.5645",
-      "什麼都解析不到時回傳原輸入，總比送出空字串好")
+                             geocode.Place(1, 2, "l", "s")) is None,
+      "什麼都解析不到時回傳 None，絕不把座標字串送出去")
 
 print("\n--- 地標名稱是當地語言時要跳過 ---")
 cjk = geocode.Place(25.03, 121.56, "label", "OpenStreetMap",
@@ -241,6 +244,57 @@ check(covered >= 45,
       f"{covered} / {len(options)} 個城市有費率（城市或國家層級）")
 names = [o["name"] for o in app._city_options(config)]
 check(names == sorted(names, key=str.casefold), "清單由 A 到 Z 排序")
+
+print("\n--- 送去 Google Hotels 的字串：所有路徑一次走過 ---")
+# 這張表是「搜尋邏輯都檢查過了嗎」的答案。
+# 鐵則：座標字串和網址永遠不能送出去。Google 看到座標會憑字面亂猜 ——
+# 實際踩過一次，貼東京迪士尼的座標，結果出現在 12000 公里外的美國露營地。
+_P = app.geocode.Place
+for dest, place, city_field, expected, label in [
+    ("ICC Sydney",
+     _P(0, 0, "", "", None, "Sydney, Australia", "International Convention Centre Sydney"),
+     "", "International Convention Centre Sydney", "地標查到就用地標"),
+    ("Tokyo Big Sight",
+     _P(0, 0, "", "", None, "Ariake, Koto, Japan", "Tokyo Big Sight"),
+     "", "Tokyo Big Sight, Ariake, Koto, Japan", "地標會補上地區"),
+    ("Sofitel Sydney Darling Harbour",
+     _P(0, 0, "", "", None, "Sydney, Australia", None),
+     "", "Sofitel Sydney Darling Harbour", "地標 None 時用使用者打的字"),
+    ("33.87230°S 151.19896°E",
+     _P(0, 0, "", "", None, "Sydney, Australia", None),
+     "Sydney", "Sydney, Australia", "座標＋地標 None → 用地區"),
+    ("33.87230°S 151.19896°E",
+     _P(0, 0, "", "", None, None, None),
+     "Sydney", "Sydney", "連地區都沒有 → 用城市欄位"),
+    ("33.87230°S 151.19896°E",
+     _P(0, 0, "", "", None, None, None),
+     "", None, "什麼都沒有 → 回 None，不送座標出去"),
+    ("https://maps.app.goo.gl/abc",
+     _P(0, 0, "", "", None, None, None),
+     "", None, "網址也一樣不送出去"),
+    ("https://maps.app.goo.gl/abc",
+     _P(0, 0, "", "", None, "Sydney, Australia", None),
+     "", "Sydney, Australia", "網址但反查到地區 → 用地區"),
+    ("台北101",
+     _P(0, 0, "", "", None, "Xinyi, Taipei, Taiwan", "台北101"),
+     "", "Xinyi, Taipei, Taiwan", "中文地標先跳過，改用英文地區"),
+    ("台北101",
+     _P(0, 0, "", "", None, None, "台北101"),
+     "", "台北101", "全部都是中文時才用中文（總比沒有好）"),
+]:
+    got = app.hotel_search_query(dest, place, city_field)
+    check(got == expected, f"{label} → {got!r}")
+
+# 不管走哪一條路，送出去的東西都不可以是座標或網址
+_places = [_P(0, 0, "", "", None, a, l)
+           for a in (None, "Sydney, Australia")
+           for l in (None, "ICC Sydney", "33.87, 151.19")]
+_bad = [q for d in ("33.87230°S 151.19896°E", "https://maps.app.goo.gl/x",
+                    "25.0339, 121.5645", "ICC Sydney", "")
+        for pl in _places for c in ("", "Sydney")
+        for q in [app.hotel_search_query(d, pl, c)]
+        if q and app._unusable_as_query(q)]
+check(not _bad, f"{len(_places) * 10} 種組合都沒有送出座標或網址（違規：{_bad[:3]}）")
 
 print("\n--- 查到 0 筆時會改用「城市, 國家」重查（你回報的 0 筆問題）---")
 # 實際踩過：貼 Darling Harbour 的座標，地名解析成某間飯店，Google Hotels 回 0 筆。
