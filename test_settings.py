@@ -31,7 +31,6 @@ def good_form(**overrides):
         "hotel_max_per_night_usd": "180",
         "hotel_min_per_night_usd": "0",
         "taxi_max_one_way_usd": "20",
-        "taxi_max_per_day_usd": "40",
         "require_availability": "on",
         "assume_air_conditioning": "on",
         "assume_elevator": "on",
@@ -81,9 +80,12 @@ for field, bad, keyword in [
     check(problem and keyword in problem,
           f"{field} = {bad!r} 被擋下：{problem}")
 
-_, problem = settings.parse_form(
-    good_form(taxi_max_one_way_usd="50", taxi_max_per_day_usd="40"))
-check(problem and "每日" in problem, f"每日上限小於單趟上限被擋下：{problem}")
+# 「每日交通上限」這個欄位拿掉了 —— 每日就是單趟的兩倍，從來沒有獨立
+# 擋掉過任何一間飯店，只是讓設定面板多一個要想的欄位。
+check("taxi_max_per_day_usd" not in settings.EDITABLE,
+      "設定面板上沒有「每日交通上限」了")
+_, problem = settings.parse_form(good_form(taxi_max_one_way_usd="50"))
+check(problem is None, f"只填單趟上限就可以通過：{problem}")
 
 _, problem = settings.parse_form(
     good_form(hotel_min_per_night_usd="200", hotel_max_per_night_usd="180"))

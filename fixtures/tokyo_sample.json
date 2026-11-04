@@ -390,6 +390,582 @@
       ],
       "link": "https://example.invalid/koto",
       "property_token": "FIXTURE_koto"
+    },
+    {
+      "name": "Ariake Test Hotel 01（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$150",
+        "extracted_display_price": 150
+      },
+      "total_rate": {
+        "display_price": "$300",
+        "extracted_display_price": 300
+      },
+      "gps_coordinates": {
+        "latitude": 35.6330198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-01",
+      "link": "https://example.com/ariake-test-hotel-01"
+    },
+    {
+      "name": "Ariake Test Hotel 02（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$151",
+        "extracted_display_price": 151
+      },
+      "total_rate": {
+        "display_price": "$302",
+        "extracted_display_price": 302
+      },
+      "gps_coordinates": {
+        "latitude": 35.6334198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-02",
+      "link": "https://example.com/ariake-test-hotel-02"
+    },
+    {
+      "name": "Ariake Test Hotel 03（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$152",
+        "extracted_display_price": 152
+      },
+      "total_rate": {
+        "display_price": "$304",
+        "extracted_display_price": 304
+      },
+      "gps_coordinates": {
+        "latitude": 35.6338198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-03",
+      "link": "https://example.com/ariake-test-hotel-03"
+    },
+    {
+      "name": "Ariake Test Hotel 04（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$153",
+        "extracted_display_price": 153
+      },
+      "total_rate": {
+        "display_price": "$306",
+        "extracted_display_price": 306
+      },
+      "gps_coordinates": {
+        "latitude": 35.6342198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-04",
+      "link": "https://example.com/ariake-test-hotel-04"
+    },
+    {
+      "name": "Ariake Test Hotel 05（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$154",
+        "extracted_display_price": 154
+      },
+      "total_rate": {
+        "display_price": "$308",
+        "extracted_display_price": 308
+      },
+      "gps_coordinates": {
+        "latitude": 35.6346198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-05",
+      "link": "https://example.com/ariake-test-hotel-05"
+    },
+    {
+      "name": "Ariake Test Hotel 06（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$155",
+        "extracted_display_price": 155
+      },
+      "total_rate": {
+        "display_price": "$310",
+        "extracted_display_price": 310
+      },
+      "gps_coordinates": {
+        "latitude": 35.6350198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-06",
+      "link": "https://example.com/ariake-test-hotel-06"
+    },
+    {
+      "name": "Ariake Test Hotel 07（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$156",
+        "extracted_display_price": 156
+      },
+      "total_rate": {
+        "display_price": "$312",
+        "extracted_display_price": 312
+      },
+      "gps_coordinates": {
+        "latitude": 35.6354198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-07",
+      "link": "https://example.com/ariake-test-hotel-07"
+    },
+    {
+      "name": "Ariake Test Hotel 08（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$157",
+        "extracted_display_price": 157
+      },
+      "total_rate": {
+        "display_price": "$314",
+        "extracted_display_price": 314
+      },
+      "gps_coordinates": {
+        "latitude": 35.6358198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-08",
+      "link": "https://example.com/ariake-test-hotel-08"
+    },
+    {
+      "name": "Ariake Test Hotel 09（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$158",
+        "extracted_display_price": 158
+      },
+      "total_rate": {
+        "display_price": "$316",
+        "extracted_display_price": 316
+      },
+      "gps_coordinates": {
+        "latitude": 35.6362198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-09",
+      "link": "https://example.com/ariake-test-hotel-09"
+    },
+    {
+      "name": "Ariake Test Hotel 10（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$159",
+        "extracted_display_price": 159
+      },
+      "total_rate": {
+        "display_price": "$318",
+        "extracted_display_price": 318
+      },
+      "gps_coordinates": {
+        "latitude": 35.6366198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-10",
+      "link": "https://example.com/ariake-test-hotel-10"
+    },
+    {
+      "name": "Ariake Test Hotel 11（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$160",
+        "extracted_display_price": 160
+      },
+      "total_rate": {
+        "display_price": "$320",
+        "extracted_display_price": 320
+      },
+      "gps_coordinates": {
+        "latitude": 35.6370198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-11",
+      "link": "https://example.com/ariake-test-hotel-11"
+    },
+    {
+      "name": "Ariake Test Hotel 12（分頁測試用）",
+      "type": "hotel",
+      "rate_per_night": {
+        "display_price": "$161",
+        "extracted_display_price": 161
+      },
+      "total_rate": {
+        "display_price": "$322",
+        "extracted_display_price": 322
+      },
+      "gps_coordinates": {
+        "latitude": 35.6374198,
+        "longitude": 139.7933536
+      },
+      "overall_rating": 3.8,
+      "reviews": 4213,
+      "hotel_class": "3-star hotel",
+      "extracted_hotel_class": 3,
+      "amenities": [
+        "Free Wi-Fi",
+        "Restaurant",
+        "Accessible",
+        "Kid-friendly"
+      ],
+      "nearby_places": [
+        {
+          "name": "Tokyo Big Sight Higashitō",
+          "transportations": [
+            {
+              "type": "Walking",
+              "duration": "4 min"
+            }
+          ]
+        },
+        {
+          "name": "Haneda Airport",
+          "transportations": [
+            {
+              "type": "Taxi",
+              "duration": "18 min"
+            }
+          ]
+        }
+      ],
+      "property_token": "pagination-test-12",
+      "link": "https://example.com/ariake-test-hotel-12"
     }
   ]
 }

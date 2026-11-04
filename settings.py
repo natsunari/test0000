@@ -32,9 +32,6 @@ EDITABLE = {
     "taxi_max_one_way_usd":
         ("budget", "taxi_max_one_way_usd", float, "單趟交通上限", "USD",
          "飯店到目的地的單程車資上限"),
-    "taxi_max_per_day_usd":
-        ("budget", "taxi_max_per_day_usd", float, "每日交通上限", "USD",
-         "通常是單趟的兩倍"),
     "require_availability":
         ("availability", "require", bool, "只列出有空房的", "",
          "沒有可訂價格的飯店直接排除"),
@@ -51,7 +48,6 @@ LIMITS = {
     "hotel_max_per_night_usd": (1, 2000),
     "hotel_min_per_night_usd": (0, 1000),
     "taxi_max_one_way_usd": (1, 500),
-    "taxi_max_per_day_usd": (1, 1000),
 }
 
 
@@ -137,8 +133,6 @@ def parse_form(form) -> tuple[dict, str | None]:
             return {}, f"「{label}」要在 {low} 到 {high} {unit} 之間，你填的是 {number}。"
         values[name] = number
 
-    if values["taxi_max_per_day_usd"] < values["taxi_max_one_way_usd"]:
-        return {}, "「每日交通上限」不能小於「單趟交通上限」。"
     if values["hotel_min_per_night_usd"] >= values["hotel_max_per_night_usd"]:
         return {}, "「住宿每晚下限」必須小於上限，否則不會有任何飯店符合。"
     return values, None

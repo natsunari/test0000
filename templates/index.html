@@ -165,26 +165,24 @@
 
     .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 
-    /* 三筆以上就改成橫向捲動。一次塞十幾張卡片會把頁面拉得很長，
-       而你只會仔細看前面幾張。觸控板、觸控螢幕可以直接滑，
-       滑鼠使用者用兩側的箭頭。
-       卡片用 flex:1 0 290px —— 放得下的時候長大撐滿整列（看起來跟格線一樣），
-       放不下才維持 290px 並往右溢出。這樣三筆不會變成一排窄卡片加一片空白。 */
-    .carousel{position:relative}
-    .track{display:flex;gap:16px;overflow-x:auto;padding:2px 2px 10px;
-      scroll-snap-type:x mandatory;scroll-behavior:smooth;
-      scrollbar-width:thin;scrollbar-color:#c8cdd4 transparent}
-    .track::-webkit-scrollbar{height:8px}
-    .track::-webkit-scrollbar-thumb{background:#c8cdd4;border-radius:99px}
-    .track > .card{flex:1 0 290px;scroll-snap-align:start}
-    .cnav{position:absolute;top:-38px;right:0;display:flex;gap:6px}
-    .cnav button{width:30px;height:30px;padding:0;border-radius:8px;
+    /* 卡片一律用格線往下排，每頁最多 16 張，超過就分頁。
+       之前是橫向捲動，但一次看得到的只有三四張，要比較得一直滑；
+       往下排可以一眼掃過一整頁。 */
+    .pager{display:flex;align-items:center;gap:10px;margin:0 0 14px;
+      font-size:13px;color:var(--muted);flex-wrap:wrap}
+    .pager button{width:30px;height:30px;padding:0;border-radius:8px;
       background:#fff;color:var(--fg);border:1px solid var(--line);
       font-size:15px;line-height:1;display:flex;align-items:center;
       justify-content:center}
-    .cnav button:hover:not(:disabled){background:#f3f4f6}
-    .cnav button:disabled{color:#c3c7ce;background:#fafbfc;cursor:default}
-    .cnote{font-size:12px;color:var(--muted);margin:0 0 8px}
+    .pager button:hover:not(:disabled){background:#f3f4f6}
+    .pager button:disabled{color:#c3c7ce;background:#fafbfc;cursor:default}
+    .pager .nums{display:flex;gap:4px}
+    .pager .nums button{width:auto;min-width:30px;padding:0 9px;font-size:13px;
+      font-weight:600}
+    .pager .nums button.on{background:var(--accent);color:#fff;
+      border-color:var(--accent)}
+    .pager .nums button.on:hover{background:var(--accent)}
+    .pager .count{margin-left:auto}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
       overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
     .card.ok{border-color:var(--ok-line)}
@@ -278,17 +276,17 @@
                    autocomplete="off"></div>
         </div>
 
-        <label style="margin-bottom:7px">搜尋方式（三選一）</label>
+        <label style="margin-bottom:7px">搜尋方式（二選一）</label>
         <div class="modes">
-          <div class="mode">
-            <label><input type="radio" name="mode" value="{{ MODE_CACHE }}"
-                   {% if form.mode == MODE_CACHE %}checked{% endif %}>
-              <span><b>搜尋</b><em>歷史存檔顯示</em></span></label>
-          </div>
           <div class="mode">
             <label><input type="radio" name="mode" value="{{ MODE_REFRESH }}"
                    {% if form.mode == MODE_REFRESH %}checked{% endif %}>
               <span><b>重查</b><em>目的地與飯店重查</em></span></label>
+          </div>
+          <div class="mode">
+            <label><input type="radio" name="mode" value="{{ MODE_CACHE }}"
+                   {% if form.mode == MODE_CACHE %}checked{% endif %}>
+              <span><b>搜尋</b><em>歷史存檔顯示</em></span></label>
           </div>
         </div>
 
@@ -395,8 +393,30 @@
 
       // 瀏覽器會在重新整理或返回時把剛才填的值填回去，
       // 而且那發生在 load 之後，所以要等 load 才清，提早清會被蓋掉。
+      // 左邊的搜尋欄位。右邊的限制條件不在這裡面 —— 重新整理時那些要留著。
+      const leftFields = ['destination', 'city', 'check_in', 'check_out'];
+
+      function clearLeft() {
+        leftFields.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        const fallback = document.querySelector(
+          'input[name="mode"][value="{{ MODE_CACHE }}"]');
+        if (fallback) fallback.checked = true;
+      }
+
       function clearRestoredValues() {
+        // form.reset() 把所有欄位回到伺服器印出來的值。
+        // 對右邊的限制條件來說那正是現在生效的值，所以是對的。
         form.reset();
+        // 但搜尋結果頁是 POST 出來的，重新整理時瀏覽器會重送那次 POST，
+        // 伺服器把同樣的目的地和日期再印一次 —— reset() 回到的就是那些值，
+        // 等於沒清。所以「重新整理」這個情況要另外把左邊清掉。
+        const nav = performance.getEntriesByType
+          ? performance.getEntriesByType('navigation')[0]
+          : null;
+        if (nav && nav.type === 'reload') clearLeft();
         refresh();
         syncDates();
       }
@@ -465,8 +485,7 @@
         {%- else %}
           ≤ <b>${{ '%g'|format(config.budget.hotel_max_per_night_usd) }}</b>／晚，
         {%- endif %}
-        交通單趟 ≤ <b>${{ '%g'|format(config.budget.taxi_max_one_way_usd) }}</b>、
-        每日 ≤ <b>${{ '%g'|format(config.budget.taxi_max_per_day_usd) }}</b>，
+        交通單趟 ≤ <b>${{ '%g'|format(config.budget.taxi_max_one_way_usd) }}</b>，
         走路可達門檻 <b>{{ (config.distance.walking_max_km * 1000)|round|int }}</b> 公尺
         {% if using_custom %}<b>（已自訂）</b>{% endif %}<br>
       計程車費率：
@@ -515,8 +534,11 @@
           <div class="chips">
             {% if v.walkable %}
               <span class="chip walk">🚶 走路 {{ (v.distance_km * 1000)|round|int }} m</span>
-            {% elif v.fare_per_day %}
-              <span class="chip">🚕 每日 ${{ '%.2f'|format(v.fare_per_day) }}</span>
+            {% elif v.fare_one_way %}
+              {# 規則看的是單趟，所以標籤也顯示單趟。
+                 以前顯示「每日」（＝單趟×2），結果上限設 $10 卻看到 $10.97，
+                 看起來像超標沒被擋。來回金額放在 title 裡，滑過去才看。 #}
+              <span class="chip" title="來回約 ${{ '%.2f'|format(v.fare_per_day) }}">🚕 單趟 ${{ '%.2f'|format(v.fare_one_way) }}</span>
             {% endif %}
             {% if v.total_daily_usd %}<span class="chip total">每日總計 ${{ '%.2f'|format(v.total_daily_usd) }}
               {%- if rate %} ・ {{ rate.target }} {{ rate.format(v.total_daily_usd) }}{% endif %}</span>{% endif %}
@@ -582,20 +604,21 @@
       </div>
     {% endif %}
 
-    {# 三筆以上就橫向捲動，否則照常用格線排 #}
+{# 每頁最多 16 張，超過就分頁。每一區各自有自己的頁數。
+       卡片全部印在頁面上，由 JS 控制哪些顯示 —— 換頁不用重新連網，
+       也不會再花 API 額度。 #}
     {% macro cards(items, kind) %}
-      {% if items|length >= 3 %}
-        <div class="carousel">
-          <p class="cnote">共 {{ items|length }} 筆，往右滑看更多（已依順序排好，前面的最合適）</p>
-          <div class="cnav">
-            <button type="button" class="prev" aria-label="上一批">‹</button>
-            <button type="button" class="next" aria-label="下一批">›</button>
+      <div class="paged" data-per-page="16">
+        {% if items|length > 16 %}
+          <div class="pager">
+            <button type="button" class="pprev" aria-label="上一頁">‹</button>
+            <span class="nums"></span>
+            <button type="button" class="pnext" aria-label="下一頁">›</button>
+            <span class="count">共 {{ items|length }} 筆，已依順序排好，前面的最合適</span>
           </div>
-          <div class="track">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
-        </div>
-      {% else %}
+        {% endif %}
         <div class="grid">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
-      {% endif %}
+      </div>
     {% endmacro %}
 
     <h2 class="ok">✅ 完全符合 <span class="count">{{ clear|length }}</span></h2>
@@ -731,30 +754,47 @@
       input.addEventListener('blur', () => setTimeout(close, 120));
     })();
 
-    // 左右箭頭。滑到頭的時候要變灰，不然會一直按卻沒反應。
-    // 卡片全部放得下的時候（例如只有三筆、螢幕又夠寬），箭頭和
-    // 「往右滑看更多」整個收起來 —— 擺著一組按不動的箭頭只會讓人困惑。
-    document.querySelectorAll('.carousel').forEach((wrap) => {
-      const track = wrap.querySelector('.track');
-      const prev = wrap.querySelector('.prev');
-      const next = wrap.querySelector('.next');
-      const nav = wrap.querySelector('.cnav');
-      const note = wrap.querySelector('.cnote');
-      const step = () => Math.max(track.clientWidth * 0.8, 290);
-      const sync = () => {
-        const scrollable = track.scrollWidth - track.clientWidth > 4;
-        nav.hidden = !scrollable;
-        if (note) note.hidden = !scrollable;
-        const atStart = track.scrollLeft <= 4;
-        const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
-        prev.disabled = atStart;
-        next.disabled = atEnd;
-      };
-      prev.addEventListener('click', () => track.scrollBy({ left: -step() }));
-      next.addEventListener('click', () => track.scrollBy({ left: step() }));
-      track.addEventListener('scroll', sync, { passive: true });
-      window.addEventListener('resize', sync);
-      sync();
+    // 分頁。卡片已經全部印在頁面上，這裡只控制哪一批看得見。
+    // 每一區各自算自己的頁數：完全符合 18 筆就是 2 頁，非完全符合 10 筆就 1 頁。
+    document.querySelectorAll('.paged').forEach((wrap) => {
+      const per = parseInt(wrap.dataset.perPage, 10) || 16;
+      const cards = Array.from(wrap.querySelectorAll('.grid > .card'));
+      const pages = Math.ceil(cards.length / per);
+      if (pages < 2) return;
+
+      const prev = wrap.querySelector('.pprev');
+      const next = wrap.querySelector('.pnext');
+      const nums = wrap.querySelector('.nums');
+      let at = 0;
+
+      for (let i = 0; i < pages; i++) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = String(i + 1);
+        b.addEventListener('click', () => show(i, true));
+        nums.appendChild(b);
+      }
+
+      function show(page, scroll) {
+        at = Math.max(0, Math.min(pages - 1, page));
+        cards.forEach((card, i) => {
+          card.hidden = Math.floor(i / per) !== at;
+        });
+        Array.from(nums.children).forEach((b, i) => {
+          b.classList.toggle('on', i === at);
+        });
+        prev.disabled = at === 0;
+        next.disabled = at === pages - 1;
+        // 換頁後把這一區的標題捲回畫面上，不然會停在上一頁的底部
+        if (scroll) {
+          const head = wrap.previousElementSibling;
+          (head || wrap).scrollIntoView({ block: 'start', behavior: 'smooth' });
+        }
+      }
+
+      prev.addEventListener('click', () => show(at - 1, true));
+      next.addEventListener('click', () => show(at + 1, true));
+      show(0, false);
     });
   </script>
 

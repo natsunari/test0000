@@ -309,7 +309,7 @@ _form = {
     "check_in": "2027-02-01", "check_out": "2027-02-06", "mode": "refresh",
     "action": "search",
     "hotel_min_per_night_usd": "0", "hotel_max_per_night_usd": "500",
-    "taxi_max_one_way_usd": "20", "taxi_max_per_day_usd": "40",
+    "taxi_max_one_way_usd": "20",
     "require_availability": "on",
     "assume_air_conditioning": "on", "assume_elevator": "on",
 }

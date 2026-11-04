@@ -311,13 +311,6 @@ def evaluate(hotel: dict, destination: tuple[float, float],
                 f"距離 {road:.1f} 公里，單趟約 ${one_way:.2f}，"
                 f"超過單趟上限 ${budget['taxi_max_one_way_usd']:g}"
             )
-        elif v.fare_per_day > budget["taxi_max_per_day_usd"]:
-            v.passed = False
-            v.reject_category = v.reject_category or "fare"
-            v.rejected_for.append(
-                f"來回約 ${v.fare_per_day:.2f}，"
-                f"超過每日上限 ${budget['taxi_max_per_day_usd']:g}"
-            )
         # 費率是估的這件事，是整次搜尋共通的狀況，不是某一間飯店的問題。
         # 以前把它寫進 to_confirm，結果只要某地沒費率，所有飯店都被推進
         # 「待確認」，「完全符合」永遠是 0 筆；每張卡片還重複同一句話。

@@ -38,8 +38,12 @@ const { chromium } = require('playwright');
   check(await page.locator('#modeDemo').count() === 0,
         '畫面上沒有「示範模式」選項了');
   const modeLabels = await page.locator('.mode span b').allTextContents();
-  check(JSON.stringify(modeLabels) === JSON.stringify(['搜尋', '重查']),
-        `搜尋方式只剩兩個：${modeLabels.join('、')}`);
+  check(JSON.stringify(modeLabels) === JSON.stringify(['重查', '搜尋']),
+        `搜尋方式兩個，重查在前：${modeLabels.join('、')}`);
+  const modeHeading = await page.locator('label:has-text("搜尋方式")').first().textContent();
+  check(modeHeading.includes('二選一'), `標題寫「二選一」：${modeHeading.trim()}`);
+  check(await page.locator('[name="taxi_max_per_day_usd"]').count() === 0,
+        '設定面板上沒有「每日交通上限」欄位了');
 
   console.log('\n--- 三個開關預設全開 ---');
   for (const name of ['require_availability', 'assume_air_conditioning', 'assume_elevator']) {
@@ -185,7 +189,7 @@ const { chromium } = require('playwright');
         '選完之後再按 ▾，清單還是完整的（可以直接改選別的城市）');
   await page.keyboard.press('Escape');
 
-  console.log('\n--- 三筆以上改成橫向捲動 ---');
+  console.log('\n--- 卡片往下排，每頁 16 張 ---');
   await page.goto('http://127.0.0.1:5000/?demo=1');
   await page.waitForLoadState('load');
   await page.fill('#check_in', '2027-03-10');
@@ -195,48 +199,110 @@ const { chromium } = require('playwright');
   await page.waitForLoadState('load');
   await page.waitForTimeout(300);
 
-  const carousels = page.locator('.carousel');
-  check(await carousels.count() >= 2, '三筆以上的區塊都改成橫向捲動');
+  check(await page.locator('.carousel').count() === 0, '沒有橫向輪播了');
+  const paged = page.locator('.paged');
+  check(await paged.count() >= 2, '每一區都用分頁容器包起來');
 
-  // 三筆在寬螢幕上其實放得下 —— 那就不該擺一組按不動的箭頭
-  const small = carousels.last();
-  check(await small.locator('.card').count() === 3, '最後一區剛好三筆');
-  check(await small.locator('.cnav').isHidden(),
-        '三筆在這個寬度放得下，箭頭自動收起來');
-  const cardW = await small.locator('.card').first()
-    .evaluate(el => el.getBoundingClientRect().width);
-  check(cardW > 300, `放得下的時候卡片會撐滿整列（寬 ${Math.round(cardW)}px，不是乾乾的 290px）`);
+  // 每一區各自算自己的頁數
+  const perSection = await paged.evaluateAll(els => els.map(e => ({
+    total: e.querySelectorAll('.grid > .card').length,
+    visible: Array.from(e.querySelectorAll('.grid > .card'))
+      .filter(c => !c.hidden).length,
+    hasPager: !!e.querySelector('.pager'),
+    pageButtons: e.querySelectorAll('.nums button').length,
+  })));
+  console.log('    各區：', JSON.stringify(perSection));
 
-  const track = carousels.first().locator('.track');
-  const prev = carousels.first().locator('.prev');
-  const next = carousels.first().locator('.next');
-  check(!(await carousels.first().locator('.cnav').isHidden()),
-        '放不下的區塊才顯示箭頭');
-  check(await prev.isDisabled(), '剛載入時「上一批」是停用的（已經在最左邊）');
-  check(!(await next.isDisabled()), '「下一批」可以按');
+  const big = perSection.find(x => x.total > 16);
+  const small = perSection.find(x => x.total > 0 && x.total <= 16);
 
-  const scrollBefore = await track.evaluate(el => el.scrollLeft);
-  await next.click();
-  await page.waitForTimeout(600);
-  const scrollAfter = await track.evaluate(el => el.scrollLeft);
-  check(scrollAfter > scrollBefore,
-        `按「下一批」會往右滑（${scrollBefore} → ${scrollAfter}）`);
-  check(!(await prev.isDisabled()), '滑動之後「上一批」變成可按');
+  check(big && big.hasPager, `超過 16 筆的區塊有分頁列（${big && big.total} 筆）`);
+  check(big && big.pageButtons === Math.ceil(big.total / 16),
+        `${big && big.total} 筆分成 ${big && big.pageButtons} 頁`);
+  check(big && big.visible === 16, `第一頁剛好顯示 16 張（實際 ${big && big.visible}）`);
 
-  // 捲動是平滑動畫，直接設 scrollLeft 會慢慢滑過去，所以要等它停
-  await track.evaluate(el => el.scrollTo({ left: el.scrollWidth,
-                                           behavior: 'instant' }));
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('.carousel .track');
-      return el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
-    }, null, { timeout: 5000 });
-  await page.waitForTimeout(100);
-  check(await next.isDisabled(), '滑到最右邊時「下一批」變灰');
+  check(small && !small.hasPager,
+        `不到 16 筆的區塊沒有分頁列（${small && small.total} 筆）`);
+  check(small && small.visible === small.total,
+        '不分頁的區塊所有卡片都看得到');
 
-  console.log('\n--- 重新整理要清空欄位（你回報的問題）---');
-  // 必須從乾淨的頁面開始。重新整理一個 POST 出來的結果頁，
-  // 瀏覽器會重送那次 POST，伺服器本來就該把同樣的值印回來。
+  // 換頁
+  const pager = page.locator('.paged:has(.pager)').first();
+  check(await pager.locator('.pprev').isDisabled(), '第一頁時「上一頁」停用');
+  check(!(await pager.locator('.pnext').isDisabled()), '第一頁時「下一頁」可按');
+  check(await pager.locator('.nums button').first().evaluate(
+          b => b.classList.contains('on')),
+        '第 1 頁的按鈕是選中狀態');
+
+  await pager.locator('.pnext').click();
+  await page.waitForTimeout(400);
+  const page2 = await pager.evaluate(e => ({
+    visible: Array.from(e.querySelectorAll('.grid > .card'))
+      .filter(c => !c.hidden).length,
+    total: e.querySelectorAll('.grid > .card').length,
+    onIndex: Array.from(e.querySelectorAll('.nums button'))
+      .findIndex(b => b.classList.contains('on')),
+  }));
+  check(page2.visible === page2.total - 16,
+        `第二頁顯示剩下的 ${page2.visible} 張`);
+  check(page2.onIndex === 1, '第 2 頁的按鈕變成選中狀態');
+  check(await pager.locator('.pnext').isDisabled(), '最後一頁時「下一頁」停用');
+  check(!(await pager.locator('.pprev').isDisabled()), '最後一頁時「上一頁」可按');
+
+  // 直接點頁碼
+  await pager.locator('.nums button').first().click();
+  await page.waitForTimeout(400);
+  check(await pager.locator('.pprev').isDisabled(), '點頁碼 1 回到第一頁');
+
+  console.log('\n--- 車資標籤要顯示單趟，不是每日（你回報的問題）---');
+  // 上限設的是單趟，標籤卻寫「每日」（＝單趟×2），看起來像超標沒被擋
+  const fareChip = page.locator('.chip:has-text("🚕")').first();
+  if (await fareChip.count()) {
+    const text = await fareChip.textContent();
+    check(text.includes('單趟'), `車資標籤寫「單趟」：${text.trim()}`);
+    check(!text.includes('每日'), '車資標籤不再寫「每日」');
+    const title = await fareChip.getAttribute('title');
+    check(title && title.includes('來回'), `來回金額放在 title：${title}`);
+  } else {
+    check(true, '這批結果都是走路可達，沒有車資標籤可驗');
+  }
+
+  console.log('\n--- 重新整理結果頁，左邊要清空、右邊要留著（你回報的問題）---');
+  // 重新整理 POST 出來的結果頁時，瀏覽器會重送那次 POST，伺服器把同樣的
+  // 目的地和日期再印一次。以前 form.reset() 回到的就是那些值，等於沒清。
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.waitForLoadState('load');
+  await page.fill('#destination', 'Tokyo Big Sight');
+  await page.fill('#city', 'Tokyo');
+  await page.fill('#check_in', '2027-03-10');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.fill('#check_out', '2027-03-12');
+  await page.fill('#s_hotel_max_per_night_usd', '250');
+  await page.click('#btnSearch');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+  check(await page.inputValue('#destination') === 'Tokyo Big Sight',
+        '剛搜尋完，左邊的欄位還留著（這時候不該清）');
+
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(400);
+  const reloaded = {
+    destination: await page.inputValue('#destination'),
+    city: await page.inputValue('#city'),
+    check_in: await page.inputValue('#check_in'),
+    ceiling: await page.inputValue('#s_hotel_max_per_night_usd'),
+    results: await page.locator('.card').count(),
+  };
+  console.log('    重新整理結果頁後：', JSON.stringify(reloaded));
+  check(reloaded.destination === '' && reloaded.city === ''
+        && reloaded.check_in === '',
+        '重新整理後左邊的目的地、城市、日期都清空了');
+  check(reloaded.ceiling === '250',
+        `右邊的限制條件留著（住宿上限仍是 ${reloaded.ceiling}）`);
+  check(reloaded.results > 0, '搜尋結果還在，不會因為清欄位就消失');
+
+  console.log('\n--- 重新整理空白頁也要清空 ---');
   await page.goto('http://127.0.0.1:5000/');
   await page.waitForLoadState('load');
   await page.fill('#destination', 'Taipei 101');
