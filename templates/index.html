@@ -3,22 +3,91 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // 這段必須在 <head>、在 CSS 生效之前跑完，而且不能是 defer/async。
+    // 晚一步的話會先閃一下淺色再變深色 —— 很醜，而且看起來像壞掉。
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.setAttribute('data-theme', saved);
+        }
+      } catch (e) {
+        // 無痕視窗或封鎖了網站資料時會丟例外。
+        // 沒讀到就跟著系統設定，不影響畫面。
+      }
+    })();
+  </script>
   <title>出差飯店搜尋</title>
   <style>
+    /* 顏色一律走變數，不要在底下任何一條規則裡寫死色碼 ——
+       寫死的那一塊在深色模式不會跟著變，會留一片白。 */
     :root{
-      --bg:#f6f7f9; --panel:#fff; --fg:#1f2430; --muted:#6b7280; --line:#e3e6ea;
-      --accent:#2563eb; --accent-soft:#eff5ff;
+      --bg:#f6f7f9; --panel:#fff; --panel-2:#fbfcfd; --fg:#1f2430;
+      --muted:#6b7280; --faint:#9ca3af; --line:#e3e6ea; --line-soft:#dde3ea;
+      --hover:#f3f4f6; --sunken:#f9fafb; --photo:#eef1f5; --scroll:#c8cdd4;
+      --accent:#2563eb; --accent-hover:#1d4fd8; --accent-soft:#eff5ff;
+      --accent-line:#cfe0ff; --accent-soft-2:#e0ecff; --on-accent:#fff;
       --ok:#15803d; --ok-bg:#f1fbf4; --ok-line:#bbe6c8;
       --warn:#b45309; --warn-bg:#fffaf0; --warn-line:#f2ddb4;
       --bad:#b91c1c; --bad-bg:#fdf4f4; --bad-line:#eccccc;
+      --yes:#4d7c0f; --yes-bg:#f7fbef; --yes-line:#d7e8b8;
+      --overlay:rgba(246,247,249,.88);
       --shadow:0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.05);
+      --shadow-pop:0 8px 24px rgba(16,24,40,.12);
+      color-scheme:light;
+    }
+
+    /* 深色版。兩個選擇器做兩件事：
+         [data-theme="dark"]  使用者自己按了切換鈕
+         prefers-color-scheme 使用者沒選過，就跟著系統
+       系統是深色、但使用者明確選了淺色時，:not([data-theme="light"])
+       會擋下來，所以手動選的永遠贏過系統。 */
+    @media (prefers-color-scheme: dark){
+      :root:not([data-theme="light"]){
+        --bg:#14171d; --panel:#1b1f27; --panel-2:#212630; --fg:#e7eaf0;
+        --muted:#9aa3b2; --faint:#6b7483; --line:#2d333f; --line-soft:#353c4a;
+        --hover:#262c37; --sunken:#1e232c; --photo:#222833; --scroll:#3c4452;
+        --accent:#5b93f7; --accent-hover:#74a4f9; --accent-soft:#1b2537;
+        --accent-line:#2f4668; --accent-soft-2:#243350; --on-accent:#0f1319;
+        --ok:#5fcf86; --ok-bg:#16241c; --ok-line:#2c4a37;
+        --warn:#e0a44a; --warn-bg:#271f12; --warn-line:#4a3a1d;
+        --bad:#f08a86; --bad-bg:#2a1718; --bad-line:#4d2a2b;
+        --yes:#a3d16a; --yes-bg:#1d2518; --yes-line:#37492a;
+        --overlay:rgba(20,23,29,.88);
+        --shadow:0 1px 2px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.3);
+        --shadow-pop:0 8px 24px rgba(0,0,0,.45);
+        color-scheme:dark;
+      }
+    }
+    :root[data-theme="dark"]{
+      --bg:#14171d; --panel:#1b1f27; --panel-2:#212630; --fg:#e7eaf0;
+      --muted:#9aa3b2; --faint:#6b7483; --line:#2d333f; --line-soft:#353c4a;
+      --hover:#262c37; --sunken:#1e232c; --photo:#222833; --scroll:#3c4452;
+      --accent:#5b93f7; --accent-hover:#74a4f9; --accent-soft:#1b2537;
+      --accent-line:#2f4668; --accent-soft-2:#243350; --on-accent:#0f1319;
+      --ok:#5fcf86; --ok-bg:#16241c; --ok-line:#2c4a37;
+      --warn:#e0a44a; --warn-bg:#271f12; --warn-line:#4a3a1d;
+      --bad:#f08a86; --bad-bg:#2a1718; --bad-line:#4d2a2b;
+      --yes:#a3d16a; --yes-bg:#1d2518; --yes-line:#37492a;
+      --overlay:rgba(20,23,29,.88);
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.3);
+      --shadow-pop:0 8px 24px rgba(0,0,0,.45);
+      color-scheme:dark;
     }
     *{box-sizing:border-box}
     body{margin:0;padding:30px 16px 60px;background:var(--bg);color:var(--fg);
       font-family:-apple-system,"Segoe UI","Microsoft JhengHei","Noto Sans TC",sans-serif;
       line-height:1.6;-webkit-font-smoothing:antialiased}
     .wrap{max-width:1120px;margin:0 auto}
+    .head{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px}
+    .head > div{flex:1 1 auto;min-width:0}
+    .head .sub{margin-bottom:0}
+    button.theme{flex:0 0 auto;padding:7px 13px;font-size:13px;font-weight:600;
+      background:var(--panel);color:var(--muted);border:1px solid var(--line);
+      border-radius:999px;display:flex;align-items:center;gap:6px}
+    button.theme:hover{background:var(--hover);color:var(--fg)}
     h1{font-size:24px;margin:0 0 4px;letter-spacing:-.01em}
     .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
     code{background:var(--accent-soft);padding:1px 5px;border-radius:4px;font-size:13px}
@@ -32,7 +101,7 @@
     [hidden]{display:none !important}
     label{display:block;font-size:13px;font-weight:600;color:var(--fg);margin-bottom:5px}
     input[type=text],input[type=date]{width:100%;padding:10px 12px;font-size:15px;
-      border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--fg)}
+      border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--fg)}
     input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
     .hint{font-size:12px;color:var(--muted);margin-top:5px}
 
@@ -40,7 +109,7 @@
     .mode{flex:1 1 200px}
     .mode input{position:absolute;opacity:0;pointer-events:none}
     .mode span{display:block;border:1px solid var(--line);border-radius:10px;
-      padding:10px 12px;font-size:13px;cursor:pointer;background:#fff;transition:.12s}
+      padding:10px 12px;font-size:13px;cursor:pointer;background:var(--panel);transition:.12s}
     .mode span b{display:block;font-size:14px;margin-bottom:2px}
     .mode span em{font-style:normal;color:var(--muted)}
     .mode input:checked + span{border-color:var(--accent);background:var(--accent-soft);
@@ -48,8 +117,8 @@
     .mode input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
 
     button{padding:11px 26px;font-size:16px;font-weight:600;border:none;border-radius:9px;
-      background:var(--accent);color:#fff;cursor:pointer}
-    button:hover{background:#1d4fd8}
+      background:var(--accent);color:var(--on-accent);cursor:pointer}
+    button:hover{background:var(--accent-hover)}
 
     .notice{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);
       padding:11px 14px;border-radius:9px;margin-bottom:16px;font-size:14px}
@@ -76,13 +145,13 @@
       margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
     .actions .spacer{flex:1 1 auto}
     .dirty-hint{font-size:12.5px;color:var(--warn)}
-    button:disabled{background:#e5e7eb;color:#9ca3af;cursor:not-allowed}
-    button.ghost:disabled{background:#f9fafb;color:#c3c7ce;border-color:var(--line)}
+    button:disabled{background:var(--line);color:var(--faint);cursor:not-allowed}
+    button.ghost:disabled{background:var(--sunken);color:var(--faint);border-color:var(--line)}
 
     .col-settings h3{font-size:15px;margin:0 0 3px;display:flex;align-items:center;gap:7px}
     .badge{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;
-      background:var(--accent-soft);color:var(--accent);border:1px solid #cfe0ff}
-    .badge.plain{background:#f3f4f6;color:var(--muted);border-color:var(--line)}
+      background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line)}
+    .badge.plain{background:var(--hover);color:var(--muted);border-color:var(--line)}
     .sidenote{font-size:12px;color:var(--muted);margin:0 0 13px;line-height:1.5}
     .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}
     .sgrid .switch{grid-column:1 / -1}
@@ -97,19 +166,19 @@
     .switch input{margin-top:3px;flex:0 0 auto}
     .switch b{font-size:12.5px;font-weight:600;display:block}
     button.small{padding:8px 14px;font-size:13.5px;border-radius:8px}
-    button.ghost{background:#fff;color:var(--muted);border:1px solid var(--line)}
-    button.ghost:hover:not(:disabled){background:#f3f4f6;color:var(--fg)}
+    button.ghost{background:var(--panel);color:var(--muted);border:1px solid var(--line)}
+    button.ghost:hover:not(:disabled){background:var(--hover);color:var(--fg)}
     .saved{background:var(--ok-bg);border:1px solid var(--ok-line);color:var(--ok);
       padding:10px 14px;border-radius:9px;margin-bottom:16px;font-size:14px}
 
     /* ---------- 搜尋中的遮罩 ---------- */
     .loading{position:fixed;inset:0;z-index:999;display:flex;align-items:center;
-      justify-content:center;background:rgba(246,247,249,.88);
+      justify-content:center;background:var(--overlay);
       backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
     .loading[hidden]{display:none}
     .loading-box{text-align:center;padding:30px 40px}
     .spinner{width:44px;height:44px;margin:0 auto 16px;border-radius:50%;
-      border:4px solid #dde3ea;border-top-color:var(--accent);
+      border:4px solid var(--line-soft);border-top-color:var(--accent);
       animation:spin .8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-title{margin:0;font-size:16px;font-weight:700}
@@ -152,8 +221,8 @@
     .combo-list{position:absolute;z-index:40;top:calc(100% + 4px);left:0;
       min-width:100%;width:max-content;max-width:290px;
       margin:0;padding:4px;list-style:none;max-height:280px;overflow-y:auto;
-      background:#fff;border:1px solid var(--line);border-radius:10px;
-      box-shadow:0 8px 24px rgba(16,24,40,.12);scrollbar-width:thin}
+      background:var(--panel);border:1px solid var(--line);border-radius:10px;
+      box-shadow:var(--shadow-pop);scrollbar-width:thin}
     .combo-list li{padding:7px 10px;border-radius:7px;font-size:14px;cursor:pointer;
       display:flex;align-items:baseline;gap:10px;justify-content:space-between}
     .combo-list li > span{white-space:nowrap}
@@ -178,15 +247,15 @@
     .pager{display:flex;align-items:center;justify-content:center;gap:10px;
       margin:22px 0 0;font-size:13px;color:var(--muted);flex-wrap:wrap}
     .pager button{width:30px;height:30px;padding:0;border-radius:8px;
-      background:#fff;color:var(--fg);border:1px solid var(--line);
+      background:var(--panel);color:var(--fg);border:1px solid var(--line);
       font-size:15px;line-height:1;display:flex;align-items:center;
       justify-content:center}
-    .pager button:hover:not(:disabled){background:#f3f4f6}
-    .pager button:disabled{color:#c3c7ce;background:#fafbfc;cursor:default}
+    .pager button:hover:not(:disabled){background:var(--hover)}
+    .pager button:disabled{color:var(--faint);background:var(--sunken);cursor:default}
     .pager .nums{display:flex;gap:4px}
     .pager .nums button{width:auto;min-width:30px;padding:0 9px;font-size:13px;
       font-weight:600}
-    .pager .nums button.on{background:var(--accent);color:#fff;
+    .pager .nums button.on{background:var(--accent);color:var(--on-accent);
       border-color:var(--accent)}
     .pager .nums button.on:hover{background:var(--accent)}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
@@ -194,10 +263,10 @@
     .card.ok{border-color:var(--ok-line)}
     .card.warn{border-color:var(--warn-line)}
     .card.bad{border-color:var(--bad-line);opacity:.92}
-    .photo{aspect-ratio:16/10;background:#eef1f5;position:relative;overflow:hidden}
+    .photo{aspect-ratio:16/10;background:var(--photo);position:relative;overflow:hidden}
     .photo img{width:100%;height:100%;object-fit:cover;display:block}
     .photo .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      color:#aeb6c2;font-size:13px;letter-spacing:.02em}
+      color:var(--faint);font-size:13px;letter-spacing:.02em}
     .body{padding:14px 15px 15px;display:flex;flex-direction:column;gap:9px;flex:1}
     .name{font-weight:700;font-size:15.5px;line-height:1.35;margin:0}
     .stars{font-size:12px;color:var(--muted);font-weight:500}
@@ -207,11 +276,11 @@
     .price .local{font-size:13px;color:var(--muted)}
     .chips{display:flex;gap:6px;flex-wrap:wrap}
     .chip{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);
-      background:#fbfcfd;color:var(--muted);white-space:nowrap}
+      background:var(--panel-2);color:var(--muted);white-space:nowrap}
     .chip.walk{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
-    .chip.total{color:var(--fg);font-weight:600;border-color:#cfd6df}
+    .chip.total{color:var(--fg);font-weight:600;border-color:var(--line-soft)}
     .chip.y{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
-    .chip.a{color:#4d7c0f;border-color:#d7e8b8;background:#f7fbef}
+    .chip.a{color:var(--yes);border-color:var(--yes-line);background:var(--yes-bg)}
     .chip.n{color:var(--bad);border-color:var(--bad-line);background:var(--bad-bg)}
     .reasons{margin:0;padding-left:17px;font-size:12.5px;color:var(--muted)}
     .reasons li{margin:2px 0}
@@ -220,9 +289,9 @@
     .go a{flex:1 1 auto;text-align:center;font-size:13px;font-weight:600;
       color:var(--muted);text-decoration:none;border:1px solid var(--line);
       border-radius:8px;padding:7px 11px;white-space:nowrap}
-    .go a:hover{background:#f3f4f6;color:var(--fg)}
-    .go a.primary{color:var(--accent);border-color:#cfe0ff;background:var(--accent-soft)}
-    .go a.primary:hover{background:#e0ecff;border-color:var(--accent)}
+    .go a:hover{background:var(--hover);color:var(--fg)}
+    .go a.primary{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+    .go a.primary:hover{background:var(--accent-soft-2);border-color:var(--accent)}
     .empty{color:var(--muted);font-size:14px;padding:4px 0 2px}
     footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
       font-size:12px;color:var(--muted)}
@@ -231,8 +300,14 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>出差飯店搜尋</h1>
-  <p class="sub">依公司規範與個人需求自動篩選。限制寫在 <code>config.toml</code>，搜尋時不會問你。</p>
+  <div class="head">
+    <div>
+      <h1>出差飯店搜尋</h1>
+      <p class="sub">依公司規範與個人需求自動篩選。限制寫在 <code>config.toml</code>，搜尋時不會問你。</p>
+    </div>
+    <button type="button" id="themeToggle" class="theme" aria-pressed="false"
+            title="切換淺色／深色"><span id="themeIcon">🌙</span><span id="themeText">深色</span></button>
+  </div>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if settings_error %}<div class="error">{{ settings_error }}</div>{% endif %}
@@ -648,6 +723,59 @@
   {% endif %}
 
   <script>
+    // 淺色／深色切換。
+    //
+    // 三種狀態，不是兩種：
+    //   沒選過      → 跟著作業系統（CSS 的 prefers-color-scheme 處理）
+    //   選了淺色    → data-theme="light"，系統是深色也維持淺色
+    //   選了深色    → data-theme="dark"
+    // 按鈕永遠顯示「按下去會變成什麼」，而不是現在是什麼 ——
+    // 顯示現狀的話，每個人第一次看到都要想一秒這顆是開還是關。
+    (function () {
+      const btn = document.getElementById('themeToggle');
+      if (!btn) return;
+      const root = document.documentElement;
+      const icon = document.getElementById('themeIcon');
+      const text = document.getElementById('themeText');
+      const systemDark = window.matchMedia
+        && window.matchMedia('(prefers-color-scheme: dark)');
+
+      function isDark() {
+        const chosen = root.getAttribute('data-theme');
+        if (chosen === 'dark') return true;
+        if (chosen === 'light') return false;
+        return !!(systemDark && systemDark.matches);
+      }
+
+      function paint() {
+        const dark = isDark();
+        // 按鈕寫的是「按下去會變成的樣子」
+        icon.textContent = dark ? '☀️' : '🌙';
+        text.textContent = dark ? '淺色' : '深色';
+        btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+        btn.title = dark ? '切換成淺色' : '切換成深色';
+      }
+
+      btn.addEventListener('click', () => {
+        const next = isDark() ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try {
+          localStorage.setItem('theme', next);
+        } catch (e) {
+          // 存不起來也沒關係，這一次仍然有效，只是重新整理後會跟回系統
+        }
+        paint();
+      });
+
+      // 使用者沒自己選過的時候，系統切換要跟著變
+      if (systemDark && systemDark.addEventListener) {
+        systemDark.addEventListener('change', () => {
+          if (!root.getAttribute('data-theme')) paint();
+        });
+      }
+      paint();
+    })();
+
     // 城市欄的自訂下拉。
     // 按 ▾ 一律列出全部城市（這是改掉內建 datalist 的原因）；
     // 在欄位裡打字才會跟著過濾；清單外點一下就收起來。

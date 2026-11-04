@@ -361,6 +361,88 @@ const { chromium } = require('playwright');
   check((await page.locator('.card').count()) > 0,
         `結果卡片有顯示（${await page.locator('.card').count()} 張）`);
 
+  console.log('\n--- 淺色／深色切換 ---');
+  const bg = () => page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor);
+  const theme = () => page.evaluate(
+    () => document.documentElement.getAttribute('data-theme'));
+  const btnText = async () => (await page.locator('#themeToggle').textContent()).trim();
+
+  // 乾淨狀態：沒選過、系統是淺色
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('http://127.0.0.1:5000/');
+  await page.evaluate(() => { try { localStorage.removeItem('theme'); } catch (e) {} });
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+
+  const lightBg = await bg();
+  check(await theme() === null, '沒選過的時候不設 data-theme（跟著系統）');
+  check((await btnText()).includes('深色'),
+        `按鈕顯示「按下去會變成的樣子」：${await btnText()}`);
+
+  await page.click('#themeToggle');
+  await page.waitForTimeout(200);
+  const darkBg = await bg();
+  check(await theme() === 'dark', '按一下變成深色');
+  check(darkBg !== lightBg, `背景真的換了（${lightBg} → ${darkBg}）`);
+  check((await btnText()).includes('淺色'), `按鈕變成「淺色」：${await btnText()}`);
+
+  // 整頁不可以留下沒跟著變的淺色區塊
+  const stillLight = await page.evaluate(() => {
+    const light = [];
+    document.querySelectorAll('.panel,.card,.chip,.meta,button,input,.combo-list')
+      .forEach((el) => {
+        const c = getComputedStyle(el).backgroundColor.match(/\d+/g);
+        if (!c || c[3] === '0') return;
+        // 深色模式下不該有接近全白的底色（強調色按鈕除外）
+        if (+c[0] > 230 && +c[1] > 230 && +c[2] > 230) {
+          light.push(el.className || el.tagName);
+        }
+      });
+    return light;
+  });
+  check(stillLight.length === 0,
+        `深色模式下沒有殘留的白色區塊（${stillLight.slice(0, 3).join('、') || '無'}）`);
+
+  // 重新整理要記得
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+  check(await theme() === 'dark', '重新整理之後還是深色（記在瀏覽器裡）');
+
+  // 搜尋（POST）之後也要記得
+  await page.goto('http://127.0.0.1:5000/?demo=1');
+  await page.fill('#check_in', '2027-03-10');
+  await page.dispatchEvent('#check_in', 'change');
+  await page.fill('#check_out', '2027-03-12');
+  await page.click('#btnSearch');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+  check(await theme() === 'dark', '搜尋之後還是深色');
+
+  // 系統是深色、但使用者明確選了淺色 —— 以使用者的選擇為準
+  await page.click('#themeToggle');
+  await page.waitForTimeout(150);
+  check(await theme() === 'light', '再按一下回到淺色');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+  check(await theme() === 'light', '系統切成深色，但使用者選過淺色 → 維持淺色');
+  const forcedLight = await bg();
+  check(forcedLight === lightBg,
+        `背景確實是淺色的（${forcedLight}）—— 手動選的要贏過系統`);
+
+  // 沒選過的時候才跟著系統
+  await page.evaluate(() => { try { localStorage.removeItem('theme'); } catch (e) {} });
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(200);
+  check(await bg() !== lightBg, '清掉選擇之後，系統是深色就跟著深色');
+
+  await page.emulateMedia({ colorScheme: 'light' });
+
   console.log(`\n${'='.repeat(50)}`);
   console.log(failed === 0 ? `OK —— ${passed} 項全部通過` : `${failed} 項失敗 / ${passed} 項通過`);
   console.log('='.repeat(50));
