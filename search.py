@@ -183,7 +183,19 @@ def _fetch_page(params: dict) -> dict:
         raise SearchFailed(f"連線 SerpApi 失敗：{exc}") from exc
 
     if res.status_code == 401:
-        raise SearchFailed("SerpApi 金鑰無效（401），請確認 .env 裡的金鑰。")
+        # 金鑰存在但被拒絕。最常見的原因是在 SerpApi 後台按了 Regenerate ——
+        # 舊的那把立刻失效，而兩個放金鑰的地方很容易只更新了其中一個。
+        # 訊息要同時提到這兩個地方：線上跑的時候根本沒有 .env。
+        where = ("主機的環境變數 SERPAPI_KEY"
+                 if os.environ.get("SERPAPI_KEY") else "專案資料夾裡的 .env")
+        raise SearchFailed(
+            f"SerpApi 金鑰無效（401）。目前這把是從「{where}」讀來的。\n"
+            "最常見的原因是金鑰重新產生過，舊的已經失效 —— "
+            "請到 https://serpapi.com/manage-api-key 複製現在那一把，"
+            "把上面那個位置更新掉。\n"
+            "⚠️ 金鑰放在兩個地方（自己電腦的 .env、主機的環境變數），"
+            "換金鑰時兩邊都要改。"
+        )
     if res.status_code == 429:
         raise SearchFailed(
             "SerpApi 額度用完或查詢太頻繁（429）。"

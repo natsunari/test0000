@@ -10,7 +10,13 @@
 import tempfile
 from pathlib import Path
 
+import os
+
 import search
+
+# 底下有幾段測試會把 search._fetch_page 換成假的，而且換了就不換回來。
+# 要測真正的 _fetch_page（例如 401 的訊息）時，得拿這份原始的來用。
+_REAL_FETCH_PAGE = search._fetch_page
 
 passed = 0
 
@@ -124,6 +130,47 @@ with tempfile.TemporaryDirectory() as tmp:
     check(search._cache_path({"q": "X", "api_key": "K1"})
           == search._cache_path({"q": "X", "api_key": "K2"}),
           "金鑰不影響快取檔名")
+
+print("\n--- 金鑰失效（401）的訊息要指到對的地方 ---")
+# 實際踩過：在 SerpApi 後台按 Regenerate 之後，本機的 .env 更新了，
+# 主機的環境變數忘了更新 —— 線上版開始回 401，但訊息叫人去看 .env，
+# 而線上根本沒有 .env。
+
+
+class _Unauthorized:
+    status_code = 401
+    text = ""
+
+    def json(self):
+        return {}
+
+
+def _message_when(env_key):
+    old_get = search.requests.get
+    old_env = os.environ.pop("SERPAPI_KEY", None)
+    if env_key:
+        os.environ["SERPAPI_KEY"] = env_key
+    search.requests.get = lambda *a, **k: _Unauthorized()
+    try:
+        _REAL_FETCH_PAGE({"api_key": "dummy"})
+        return ""
+    except search.SearchFailed as exc:
+        return str(exc)
+    finally:
+        search.requests.get = old_get
+        os.environ.pop("SERPAPI_KEY", None)
+        if old_env:
+            os.environ["SERPAPI_KEY"] = old_env
+
+
+online = _message_when("some-key-from-the-host")
+check("環境變數" in online and ".env 裡的金鑰" not in online,
+      "有環境變數時（線上）訊息指向主機的環境變數")
+local = _message_when(None)
+check(".env" in local, "沒有環境變數時（本機）訊息指向 .env")
+for name, text in [("線上", online), ("本機", local)]:
+    check("manage-api-key" in text, f"{name}：訊息附上重新取得金鑰的網址")
+    check("兩邊都要改" in text, f"{name}：提醒金鑰放在兩個地方")
 
 print(f"\n{'=' * 56}")
 print(f"OK —— {passed} 項檢查全部通過")
