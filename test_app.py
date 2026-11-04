@@ -31,7 +31,7 @@ later = (date.today() + timedelta(days=62)).isoformat()
 
 def form(**overrides):
     base = {"destination": "Tokyo Big Sight", "city": "Tokyo",
-            "check_in": future, "check_out": later, "mode": app.MODE_CACHE}
+            "check_in": future, "check_out": later, "mode": app.MODE_REFRESH}
     base.update(overrides)
     return base
 

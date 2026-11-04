@@ -45,6 +45,11 @@ const { chromium } = require('playwright');
   check(await page.locator('[name="taxi_max_per_day_usd"]').count() === 0,
         '設定面板上沒有「每日交通上限」欄位了');
 
+  const defaultMode = await page.locator('input[name="mode"]:checked')
+    .getAttribute('value');
+  check(defaultMode === 'refresh',
+        `一打開預設選「重查」（實際 ${defaultMode}）—— 存檔沒有有效期限，預設讀存檔會讓人看到舊房價而不自知`);
+
   console.log('\n--- 三個開關預設全開 ---');
   for (const name of ['require_availability', 'assume_air_conditioning', 'assume_elevator']) {
     check(await page.locator(`input[name="${name}"]`).isChecked(), `${name}：預設勾選`);
@@ -341,7 +346,7 @@ const { chromium } = require('playwright');
   check(after.destination === '', '目的地已清空');
   check(after.city === '', '城市已清空');
   check(after.check_in === '' && after.check_out === '', '日期已清空');
-  check(after.mode === 'cache', '搜尋方式回到預設的「搜尋」');
+  check(after.mode === 'refresh', '搜尋方式回到預設的「重查」');
 
   console.log('\n--- 搜尋結果頁的欄位應該保留，不能被清掉 ---');
   await page.goto('http://127.0.0.1:5000/?demo=1');

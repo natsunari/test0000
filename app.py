@@ -111,9 +111,15 @@ def settings_fields(config: dict, submitted=None) -> list[dict]:
 
 
 def empty_form() -> dict:
-    """每次重新打開頁面時的空白表單 —— 不預填任何值，避免沿用舊的日期。"""
+    """
+    每次重新打開頁面時的空白表單 —— 不預填任何值，避免沿用舊的日期。
+
+    預設是「重查」而不是「搜尋」：存檔沒有有效期限，一個月前查的房價
+    和空房會原封不動拿出來。預設讀存檔的話，使用者不會意識到自己看的
+    是舊資料。要省額度的人會自己改選「搜尋」。
+    """
     return {"destination": "", "city": "", "check_in": "", "check_out": "",
-            "mode": MODE_CACHE}
+            "mode": MODE_REFRESH}
 
 
 # 中日韓文字。目的地用這些字查，OpenStreetMap 與 Google Hotels 的命中率
@@ -263,7 +269,7 @@ def home():
             "city": request.form.get("city", ""),
             "check_in": request.form.get("check_in", ""),
             "check_out": request.form.get("check_out", ""),
-            "mode": request.form.get("mode", MODE_CACHE),
+            "mode": request.form.get("mode", MODE_REFRESH),
         }
 
     def page(**extra):
