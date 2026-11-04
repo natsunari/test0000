@@ -80,10 +80,23 @@ def check_account(key: str) -> None:
         "account_email": "帳號",
         "account_id": "帳號 ID",
     }
+    # 金鑰本身絕對不印出來。
+    # 使用者把這段輸出截圖問問題是很自然的事 —— 實際就發生過一次 ——
+    # 整串印出來等於把金鑰洩漏在截圖、聊天記錄或工單裡。
+    # 只留頭尾各四碼，足夠確認「是不是我以為的那一把」，拿到也用不了。
+    SECRET_FIELDS = {"api_key", "secret_key", "token"}
+
+    def mask(value: str) -> str:
+        text = str(value)
+        if len(text) <= 12:
+            return "*" * len(text)
+        return f"{text[:4]}{'*' * 12}{text[-4:]}（已遮蔽）"
+
     width = max(len(v) for v in known.values())
     for field, value in data.items():
         label = known.get(field, field)
-        print(f"  {label:<{width}} ：{value}")
+        shown = mask(value) if field in SECRET_FIELDS else value
+        print(f"  {label:<{width}} ：{shown}")
 
     used = data.get("this_month_usage")
     total = data.get("searches_per_month")
