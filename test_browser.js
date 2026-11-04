@@ -217,6 +217,21 @@ const { chromium } = require('playwright');
   const small = perSection.find(x => x.total > 0 && x.total <= 16);
 
   check(big && big.hasPager, `超過 16 筆的區塊有分頁列（${big && big.total} 筆）`);
+  // 分頁列要在卡片「下方」，標題仍留在最上面
+  const order = await page.locator('.paged:has(.pager)').first().evaluate((e) => {
+    const kids = Array.from(e.children);
+    return kids.map(k => k.className.split(' ')[0]);
+  });
+  check(order.indexOf('pager') > order.indexOf('grid'),
+        `分頁列排在卡片下方（順序：${order.join(' → ')}）`);
+  const headingAbove = await page.locator('.paged:has(.pager)').first()
+    .evaluate(e => e.previousElementSibling
+      && e.previousElementSibling.tagName.toLowerCase() === 'h2');
+  check(headingAbove, '區塊標題仍然在最上面');
+  // 一行四張，所以一頁剛好 4×4＝16
+  const cols = await page.locator('.paged:has(.pager) .grid').first().evaluate(
+    el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  check(cols === 4, `一行 ${cols} 張卡片（4×4 = 16 張一頁）`);
   check(big && big.pageButtons === Math.ceil(big.total / 16),
         `${big && big.total} 筆分成 ${big && big.pageButtons} 頁`);
   check(big && big.visible === 16, `第一頁剛好顯示 16 張（實際 ${big && big.visible}）`);

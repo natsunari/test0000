@@ -163,13 +163,20 @@
     .combo-list li:hover,.combo-list li.on{background:var(--accent-soft)}
     .combo-list li.none{color:var(--muted);cursor:default;background:none}
 
-    .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+    /* 一行固定 4 張，所以一頁剛好 4×4＝16 張。
+       以前用 auto-fill，欄數會隨視窗寬度跑，一頁看到幾張不固定。 */
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(4,1fr)}
+    @media (max-width:1040px){.grid{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:780px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:520px){.grid{grid-template-columns:1fr}}
 
     /* 卡片一律用格線往下排，每頁最多 16 張，超過就分頁。
        之前是橫向捲動，但一次看得到的只有三四張，要比較得一直滑；
        往下排可以一眼掃過一整頁。 */
-    .pager{display:flex;align-items:center;gap:10px;margin:0 0 14px;
-      font-size:13px;color:var(--muted);flex-wrap:wrap}
+    /* 分頁列在卡片「下方」置中 —— 看完一頁，手就在下面，按鈕也在下面。
+       筆數說明留在最上面，那是開始看之前就該知道的事。 */
+    .pager{display:flex;align-items:center;justify-content:center;gap:10px;
+      margin:22px 0 0;font-size:13px;color:var(--muted);flex-wrap:wrap}
     .pager button{width:30px;height:30px;padding:0;border-radius:8px;
       background:#fff;color:var(--fg);border:1px solid var(--line);
       font-size:15px;line-height:1;display:flex;align-items:center;
@@ -182,7 +189,6 @@
     .pager .nums button.on{background:var(--accent);color:#fff;
       border-color:var(--accent)}
     .pager .nums button.on:hover{background:var(--accent)}
-    .pager .count{margin-left:auto}
     .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
       overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
     .card.ok{border-color:var(--ok-line)}
@@ -610,14 +616,16 @@
     {% macro cards(items, kind) %}
       <div class="paged" data-per-page="16">
         {% if items|length > 16 %}
+          <p class="lead">共 {{ items|length }} 筆，已依順序排好，前面的最合適</p>
+        {% endif %}
+        <div class="grid">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
+        {% if items|length > 16 %}
           <div class="pager">
             <button type="button" class="pprev" aria-label="上一頁">‹</button>
             <span class="nums"></span>
             <button type="button" class="pnext" aria-label="下一頁">›</button>
-            <span class="count">共 {{ items|length }} 筆，已依順序排好，前面的最合適</span>
           </div>
         {% endif %}
-        <div class="grid">{% for v in items %}{{ card(v, kind) }}{% endfor %}</div>
       </div>
     {% endmacro %}
 
@@ -785,7 +793,8 @@
         });
         prev.disabled = at === 0;
         next.disabled = at === pages - 1;
-        // 換頁後把這一區的標題捲回畫面上，不然會停在上一頁的底部
+        // 分頁列在最下面，按完之後畫面還停在上一頁的底部。
+        // 把這一區的標題捲回來，才會從新那一頁的第一張開始看。
         if (scroll) {
           const head = wrap.previousElementSibling;
           (head || wrap).scrollIntoView({ block: 'start', behavior: 'smooth' });
