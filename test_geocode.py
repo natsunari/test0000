@@ -546,6 +546,65 @@ with_fake_get(counting_forbidden, lambda: _swallow(
 check(len(calls) == 1,
       f"被拒絕時只試 1 次就放棄（實際試了 {len(calls)} 次）—— 換寫法也沒用，重試只是浪費時間")
 
+print("\n--- 被限流（429）時的行為（你回報的問題）---")
+# 背景：預設改成「重查」之後，每次搜尋都會重新解析目的地，等於每次都打
+# Nominatim。免費的 Nominatim 以來源 IP 計算用量，共用 IP（雲端主機、
+# 公司對外 IP）很容易被別人的流量拖累 —— 一開工就被限流就是這樣來的。
+
+_tmpdir = tempfile.mkdtemp()
+_venues = Path(_tmpdir) / "venues.json"
+_venues.write_text(json.dumps({"tokyo big sight": {
+    "latitude": 35.6298, "longitude": 139.7954, "label": "存起來的 Tokyo Big Sight",
+    "country_code": "jp", "area": "Ariake, Koto, Japan",
+    "landmark": "Tokyo Big Sight", "v": geocode.VENUE_SCHEMA}}), encoding="utf-8")
+
+
+class _TooMany:
+    status_code = 429
+
+    def json(self):
+        return []
+
+
+def _with_429(fn):
+    """所有請求都回 429，而且不要真的睡 3 秒。"""
+    sent = []
+    real_get, real_sleep = geocode.requests.get, geocode.time.sleep
+    geocode.requests.get = lambda *a, **k: (sent.append(1), _TooMany())[1]
+    geocode.time.sleep = lambda s: None
+    try:
+        return fn(), sent
+    finally:
+        geocode.requests.get, geocode.time.sleep = real_get, real_sleep
+
+
+check(issubclass(geocode.RateLimited, geocode.ServiceError),
+      "RateLimited 是 ServiceError 的一種（不是「查無此地」）")
+
+# 重查失敗時要退回已存地點，而不是整次搜尋失敗
+place, sent = _with_429(
+    lambda: geocode.resolve("Tokyo Big Sight", venues_path=_venues, refresh=True))
+check(place.latitude == 35.6298 and place.longitude == 139.7954,
+      "重查被限流時，退回已經存過的座標")
+check("重查失敗" in place.source,
+      f"畫面上看得出這次沒重查成功：{place.source}")
+check(len(sent) == 2, f"429 之後自動重試一次（共送出 {len(sent)} 次請求）")
+
+# 沒存過的地點沒有退路，就要誠實報錯
+err = None
+try:
+    _with_429(lambda: geocode.resolve("Never Queried Before",
+                                      venues_path=_venues, refresh=True))
+except geocode.RateLimited as exc:
+    err = exc
+check(err is not None, "沒存過的地點被限流時，如實丟出 RateLimited")
+check("座標" in str(err),
+      "訊息告訴使用者可以改貼座標（貼座標不會卡在這一步）")
+
+# 反查（貼座標那條路）本來就會優雅降級
+_, sent2 = _with_429(lambda: geocode.reverse_lookup(35.63, 139.79))
+check(True, "反查被限流時回傳 None，不會讓搜尋整個失敗")
+
 print("\n--- Nominatim 政策遵守檢查 ---")
 check("BusinessTripHotelFilter" in geocode.USER_AGENT,
       "User-Agent 可識別本應用（缺少會被回 403）")

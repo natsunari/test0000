@@ -42,6 +42,8 @@ VENUE_SCHEMA = 3
 
 # 遵守每秒 1 次的限制
 _MIN_INTERVAL_SECONDS = 1.1
+# 被限流之後等多久再試一次
+_RATE_LIMIT_BACKOFF_SECONDS = 3.0
 _last_request_at = 0.0
 
 # 座標輸入一律先正規化再比對。
@@ -161,6 +163,14 @@ class ServiceError(LookupError):
     這跟「查無此地」是完全不同的事，不可以混為一談：
     把連線失敗說成「找不到台北101」會讓人以為是自己打錯字，
     然後一直換寫法重試，卻永遠不會成功。
+    """
+
+
+class RateLimited(ServiceError):
+    """被 OpenStreetMap 限流（429）。等一下重試有機會成功，所以獨立成一類。
+
+    免費的 Nominatim 是以來源 IP 計算用量的。共用 IP（雲端主機、公司
+    對外 IP）很容易被別人的流量拖累，所以這不一定是自己查太多。
     """
 
 
@@ -448,8 +458,12 @@ def resolve(text: str, *, allow_network: bool = True,
         return Place(lat, lon, label, source, country, area, landmark)
 
     # 2. 查過並存起來的地點（也滿足 Nominatim「應快取」的要求）
-    saved = None if (refresh and allow_network) else \
-        load_venues(venues_path).get(text.lower())
+    #
+    # 重查模式不直接用它，但還是要先讀出來：重查失敗（被限流、連不上）
+    # 時有個退路。「重查」是盡力而為，不是「查不到就整個失敗」——
+    # 已經確認過的座標再舊也比沒有結果好。
+    stored = load_venues(venues_path).get(text.lower())
+    saved = None if (refresh and allow_network) else stored
     if saved:
         place = Place(saved["latitude"], saved["longitude"],
                       saved["label"], "已存地點", saved.get("country_code"),
@@ -492,7 +506,15 @@ def resolve(text: str, *, allow_network: bool = True,
         except NotFound:
             continue        # 這個寫法查不到，換下一個簡化版本
         except ServiceError:
-            raise           # 根本沒問到，換寫法也沒用，立刻把真正原因回報出去
+            # 根本沒問到。這個地點以前查成功過的話就用那一筆 ——
+            # 總比讓整次搜尋失敗好，而且座標本來就不太會變。
+            if stored:
+                place = Place(stored["latitude"], stored["longitude"],
+                              stored["label"], "已存地點（這次重查失敗）",
+                              stored.get("country_code"), stored.get("area"),
+                              stored.get("landmark"))
+                return place
+            raise           # 沒有退路，把真正的原因回報出去
     raise NotFound(
         f"找不到「{text}」，也試過簡化版本（{'、'.join(attempts[1:]) or '無'}）。\n\n"
         f"中文地址常常查不到，最可靠的做法是直接給座標：\n"
@@ -503,8 +525,24 @@ def resolve(text: str, *, allow_network: bool = True,
     )
 
 
-def _query_nominatim(text: str) -> Place:
-    """實際向 Nominatim 查詢。查不到會丟出 LookupError。"""
+def _query_nominatim(text: str, *, retry_rate_limit: bool = True) -> Place:
+    """
+    實際向 Nominatim 查詢。查不到會丟出 LookupError。
+
+    被限流（429）時自動等一下重試一次。限流通常只持續幾秒，
+    為此讓使用者看到錯誤畫面、自己再按一次搜尋並不合理。
+    只重試一次 —— 真的被擋住的時候，一直重試既沒用也不禮貌。
+    """
+    try:
+        return _query_nominatim_once(text)
+    except RateLimited:
+        if not retry_rate_limit:
+            raise
+        time.sleep(_RATE_LIMIT_BACKOFF_SECONDS)
+        return _query_nominatim_once(text)
+
+
+def _query_nominatim_once(text: str) -> Place:
     _throttle()
     try:
         res = requests.get(
@@ -531,8 +569,10 @@ def _query_nominatim(text: str) -> Place:
             "通常是 User-Agent 的問題，請見 geocode.py 開頭的政策說明。"
         )
     if res.status_code == 429:
-        raise ServiceError(
-            "查詢太頻繁，被 OpenStreetMap 限流（429）。等個十幾秒再試一次。"
+        raise RateLimited(
+            "查詢太頻繁，被 OpenStreetMap 限流（429）。\n"
+            "等十幾秒再試一次；如果一直這樣，直接貼座標就不會卡在這一步"
+            "（在 Google Maps 上對著地點按右鍵，最上面那行就是座標）。"
         )
     if res.status_code != 200:
         raise ServiceError(
