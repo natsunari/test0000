@@ -1,0 +1,377 @@
+<title>聖誕交換禮物抽籤</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column — setup card, then a grid of gift tags that each person opens privately on a shared phone. */
+:root {
+  --bg: #f3f5f1;
+  --surface: #ffffff;
+  --ink: #1d2a24;
+  --muted: #5d6b64;
+  --line: #d6ddd7;
+  --pine: #1f5a43;
+  --pine-ink: #ffffff;
+  --berry: #b3263a;
+  --gold: #b8892b;
+  --tag: #fbf6ea;
+  --tag-ink: #3a2e1a;
+  --done: #e7ece8;
+  --font-display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
+    --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
+    --tag: #2a2519; --tag-ink: #f1e6cc; --done: #1c2722; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
+  --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
+  --tag: #2a2519; --tag-ink: #f1e6cc; --done: #1c2722; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 20px; }
+
+header { display: grid; gap: 6px; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--berry); font-weight: 700; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1.15; margin: 0; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field label, .label { font-weight: 700; font-size: 14px; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+textarea, input[type="text"] {
+  width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; resize: vertical;
+}
+textarea:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.check input { margin-top: 5px; accent-color: var(--pine); width: 16px; height: 16px; flex: none; }
+.check span { min-width: 0; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+button.primary { background: var(--pine); color: var(--pine-ink); border-color: var(--pine); font-weight: 700; }
+button.ghost { background: transparent; }
+button.danger { color: var(--berry); }
+button:hover { filter: brightness(1.06); }
+.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.msg { margin: 0; font-size: 14px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--berry); color: var(--berry); }
+.example { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px dashed var(--muted); color: var(--muted); margin-left: 6px; font-weight: 400; vertical-align: middle; }
+
+/* Results */
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+.meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.progress { height: 6px; background: var(--done); border-radius: 99px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--gold); width: 0; transition: width .3s; }
+.tags { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.tagbtn {
+  position: relative; text-align: left; padding: 16px 14px 14px 30px;
+  background: var(--tag); color: var(--tag-ink); border: 1px solid var(--line);
+  border-radius: 6px 12px 12px 6px; display: grid; gap: 2px; min-width: 0;
+}
+.tagbtn::before { /* punched hole */
+  content: ""; position: absolute; left: 11px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px;
+  border-radius: 50%; background: var(--bg); border: 1.5px solid var(--gold);
+}
+.tagbtn .who { font-family: var(--font-display); font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.tagbtn .st { font-size: 12px; color: var(--muted); }
+.tagbtn.seen { background: var(--done); color: var(--muted); }
+.tagbtn.seen .st { color: var(--pine); font-weight: 700; }
+
+/* Reveal overlay */
+.overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: grid; place-items: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
+.sheet { width: 100%; max-width: 380px; display: grid; gap: 18px; justify-items: center; text-align: center; }
+.sheet h2 { font-family: var(--font-display); font-size: 28px; margin: 0; text-wrap: balance; }
+.sheet p { margin: 0; color: var(--muted); }
+.bigtag {
+  width: 100%; background: var(--tag); color: var(--tag-ink); border: 1px solid var(--gold);
+  border-radius: 10px 22px 22px 10px; padding: 28px 24px 26px 56px; position: relative; text-align: left; display: grid; gap: 6px;
+}
+.bigtag::before { content: ""; position: absolute; left: 20px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; background: var(--bg); border: 2px solid var(--gold); }
+.bigtag .to { font-size: 13px; letter-spacing: .1em; color: var(--berry); font-weight: 700; }
+.bigtag .name { font-family: var(--font-display); font-size: clamp(36px, 11vw, 52px); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.bigtag .from { font-size: 14px; }
+.bigtag .extra { font-size: 13px; border-top: 1px dashed var(--gold); padding-top: 8px; margin-top: 6px; display: grid; gap: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .bigtag { animation: swing .7s cubic-bezier(.3,1.4,.5,1) both; transform-origin: 28px 50%; }
+  @keyframes swing { from { transform: rotate(-8deg) scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+
+.all { width: 100%; border-collapse: collapse; font-size: 15px; }
+.all td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.all td:nth-child(2) { color: var(--gold); text-align: center; width: 2em; }
+.all td:first-child, .all td:last-child { font-family: var(--font-display); font-size: 18px; }
+.tablebox { overflow-x: auto; }
+footer { font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">CHRISTMAS GIFT EXCHANGE</span>
+    <h1>聖誕交換禮物抽籤</h1>
+    <p>輸入參加名單後抽籤，每人只會看到自己要送禮的對象，不會抽到自己。</p>
+  </header>
+
+  <!-- Setup -->
+  <section class="panel" id="setup">
+    <div class="field">
+      <label for="names">參加名單 <span class="example" id="exampleBadge">範例名單</span></label>
+      <textarea id="names" rows="7" placeholder="一行一個名字"></textarea>
+      <p class="hint">一行一個名字，也可以用逗號分隔。<span class="count" id="nameCount"></span></p>
+    </div>
+
+    <div class="field">
+      <label for="excl">不能互抽的組合（選填）</label>
+      <textarea id="excl" rows="3" placeholder="小明 小美"></textarea>
+      <p class="hint">例如情侶、家人。一行一組，兩個名字用空格或逗號隔開，雙方都不會抽到彼此。</p>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="budget">禮物預算（選填）</label>
+        <input type="text" id="budget" placeholder="NT$500">
+      </div>
+      <div class="field">
+        <label for="when">交換日期（選填）</label>
+        <input type="text" id="when" placeholder="12/24 晚上">
+      </div>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="cycle">
+      <span>串成一個大圈<br><span class="hint">A 送 B、B 送 C……最後一人送回 A。現場依序拆禮物時比較順。</span></span>
+    </label>
+
+    <p class="msg" id="err" hidden></p>
+    <div class="actions">
+      <button class="primary" id="drawBtn">開始抽籤</button>
+      <button class="ghost" id="clearBtn">清空名單</button>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="panel" id="results" hidden>
+    <div class="meta" id="meta"></div>
+    <div class="progress"><i id="bar"></i></div>
+    <p class="hint">把手機傳下去，每個人點自己的名字查看。看完按「我記住了」就會蓋起來。</p>
+    <div class="tags" id="tags"></div>
+    <div class="actions">
+      <button id="showAllBtn" class="ghost">主辦人查看全部</button>
+      <button id="redrawBtn" class="ghost">重新抽籤</button>
+      <button id="backBtn" class="ghost danger">修改名單</button>
+    </div>
+    <div id="confirmBox" hidden></div>
+  </section>
+
+  <footer>結果只存在這台裝置的瀏覽器裡，不會上傳。</footer>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet"></div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const KEY = "xmas-exchange-v1";
+  const EXAMPLE = "小明\n小美\n阿傑\n佩琪\n大雄\n靜香";
+  const EXAMPLE_EXCL = "小明 小美";
+
+  let state = { names: "", excl: "", budget: "", when: "", cycle: false, result: null, seen: {} };
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function load() {
+    try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) state = Object.assign(state, s); else throw 0; }
+    catch (e) { state.names = EXAMPLE; state.excl = EXAMPLE_EXCL; state.budget = "NT$500"; state.when = "12/24 晚上"; state.isExample = true; }
+  }
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const splitNames = (t) => t.split(/[\n,，、]+/).map((s) => s.trim()).filter(Boolean);
+
+  function parseExcl(text, names) {
+    const set = new Set(names), pairs = [], unknown = [];
+    text.split("\n").map((l) => l.trim()).filter(Boolean).forEach((line) => {
+      const parts = line.split(/[\s,，、\-–—↔]+/).filter(Boolean);
+      for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) pairs.push([parts[i], parts[j]]);
+      parts.forEach((p) => { if (!set.has(p)) unknown.push(p); });
+    });
+    return { pairs, unknown };
+  }
+
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function rand() { const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0] / 4294967296; }
+
+  // Returns {giver: receiver} or null if no valid assignment exists.
+  function draw(names, pairs, cycle) {
+    const banned = new Set(pairs.flatMap(([a, b]) => [a + "\u0000" + b, b + "\u0000" + a]));
+    const ok = (g, r) => g !== r && !banned.has(g + "\u0000" + r);
+    const n = names.length;
+
+    if (cycle) {
+      // Random restarts first (uniform among valid cycles), then exhaustive search.
+      for (let t = 0; t < 5000; t++) {
+        const o = shuffle(names);
+        if (o.every((g, i) => ok(g, o[(i + 1) % n]))) return Object.fromEntries(o.map((g, i) => [g, o[(i + 1) % n]]));
+      }
+      const first = names[0], path = [first], used = new Set([first]);
+      const go = () => {
+        if (path.length === n) return ok(path[n - 1], first);
+        for (const c of shuffle(names)) if (!used.has(c) && ok(path[path.length - 1], c)) {
+          path.push(c); used.add(c); if (go()) return true; path.pop(); used.delete(c);
+        }
+        return false;
+      };
+      return go() ? Object.fromEntries(path.map((g, i) => [g, path[(i + 1) % n]])) : null;
+    }
+
+    for (let t = 0; t < 5000; t++) {
+      const p = shuffle(names);
+      if (names.every((g, i) => ok(g, p[i]))) return Object.fromEntries(names.map((g, i) => [g, p[i]]));
+    }
+    const out = {}, used = new Set(), order = shuffle(names);
+    const go = (i) => {
+      if (i === n) return true;
+      for (const c of shuffle(names)) if (!used.has(c) && ok(order[i], c)) {
+        out[order[i]] = c; used.add(c); if (go(i + 1)) return true; used.delete(c);
+      }
+      return false;
+    };
+    return go(0) ? out : null;
+  }
+
+  // ---------- Setup view ----------
+  function fillForm() {
+    $("names").value = state.names; $("excl").value = state.excl;
+    $("budget").value = state.budget; $("when").value = state.when; $("cycle").checked = state.cycle;
+    $("exampleBadge").hidden = !state.isExample;
+    updateCount();
+  }
+  function updateCount() { const n = splitNames($("names").value).length; $("nameCount").textContent = n ? `　目前 ${n} 人` : ""; }
+  function readForm() {
+    state.names = $("names").value; state.excl = $("excl").value;
+    state.budget = $("budget").value.trim(); state.when = $("when").value.trim(); state.cycle = $("cycle").checked;
+  }
+  ["names", "excl", "budget", "when", "cycle"].forEach((id) => $(id).addEventListener("input", () => {
+    state.isExample = false; $("exampleBadge").hidden = true; readForm(); updateCount(); save();
+  }));
+
+  function showErr(t) { $("err").textContent = t; $("err").hidden = !t; }
+
+  function doDraw() {
+    readForm();
+    const names = splitNames(state.names);
+    if (names.length < 3) return showErr("至少需要 3 個人才能保密抽籤。");
+    const dup = names.filter((n, i) => names.indexOf(n) !== i);
+    if (dup.length) return showErr(`名字重複：${[...new Set(dup)].join("、")}。同名的話請加上姓氏或綽號區分。`);
+    const { pairs, unknown } = parseExcl(state.excl, names);
+    if (unknown.length) return showErr(`不能互抽的組合裡有名單上沒有的名字：${[...new Set(unknown)].join("、")}。`);
+    const result = draw(names, pairs, state.cycle);
+    if (!result) return showErr("照目前的限制排不出結果，請減少「不能互抽」的組合" + (state.cycle ? "，或取消「串成一個大圈」。" : "。"));
+    showErr("");
+    state.result = { order: names, map: result, at: Date.now() };
+    state.seen = {}; state.isExample = false; save();
+    render();
+  }
+
+  // ---------- Results view ----------
+  function render() {
+    const has = !!state.result;
+    $("setup").hidden = has; $("results").hidden = !has; $("confirmBox").hidden = true;
+    if (!has) { fillForm(); return; }
+    const { order } = state.result;
+    const seenN = order.filter((n) => state.seen[n]).length;
+    const bits = [`<span>共 <b>${order.length}</b> 人</span>`, `<span>已查看 <b>${seenN}/${order.length}</b></span>`];
+    if (state.budget) bits.push(`<span>預算 <b>${esc(state.budget)}</b></span>`);
+    if (state.when) bits.push(`<span>交換 <b>${esc(state.when)}</b></span>`);
+    $("meta").innerHTML = bits.join("");
+    $("bar").style.width = (seenN / order.length * 100) + "%";
+    $("tags").innerHTML = order.map((n, i) => `<button class="tagbtn${state.seen[n] ? " seen" : ""}" data-i="${i}">
+        <span class="who">${esc(n)}</span><span class="st">${state.seen[n] ? "已查看" : "點我查看"}</span></button>`).join("");
+  }
+
+  $("tags").addEventListener("click", (e) => {
+    const b = e.target.closest(".tagbtn"); if (!b) return;
+    openReveal(state.result.order[+b.dataset.i]);
+  });
+
+  function openReveal(name) {
+    const sheet = $("sheet");
+    const again = state.seen[name] ? `<p>你之前已經看過了，確定要再看一次嗎？</p>` : `<p>請確認旁邊沒有人在偷看。</p>`;
+    sheet.innerHTML = `<h2>你是 ${esc(name)} 嗎？</h2>${again}
+      <div class="actions" style="justify-content:center">
+        <button class="primary" id="yes">是，給我看</button>
+        <button class="ghost" id="no">不是我</button>
+      </div>`;
+    $("overlay").hidden = false; $("yes").focus();
+    $("no").onclick = closeReveal;
+    $("yes").onclick = () => {
+      const to = state.result.map[name];
+      const extra = [state.budget && `預算：${esc(state.budget)}`, state.when && `交換：${esc(state.when)}`].filter(Boolean);
+      sheet.innerHTML = `<div class="bigtag">
+          <span class="to">TO　你要送禮給</span>
+          <span class="name">${esc(to)}</span>
+          <span class="from">FROM　${esc(name)}</span>
+          ${extra.length ? `<div class="extra">${extra.map((x) => `<span>${x}</span>`).join("")}</div>` : ""}
+        </div>
+        <p>記好之後按下面的按鈕蓋起來，再把手機傳給下一位。</p>
+        <button class="primary" id="gotit">我記住了</button>`;
+      $("gotit").focus();
+      $("gotit").onclick = () => { state.seen[name] = true; save(); closeReveal(); };
+    };
+  }
+  function closeReveal() { $("overlay").hidden = true; $("sheet").innerHTML = ""; render(); }
+
+  // Inline confirmations (the viewer blocks confirm()).
+  function ask(text, yesLabel, onYes) {
+    const box = $("confirmBox");
+    box.innerHTML = `<div class="panel" style="padding:14px;gap:10px"><p style="margin:0">${text}</p>
+      <div class="actions"><button class="primary" id="cy">${yesLabel}</button><button class="ghost" id="cn">取消</button></div></div>`;
+    box.hidden = false;
+    $("cn").onclick = () => { box.hidden = true; };
+    $("cy").onclick = () => { box.hidden = true; onYes(); };
+  }
+
+  $("showAllBtn").onclick = () => ask("這會顯示所有人的抽籤結果，確定只有主辦人在看嗎？", "顯示全部", () => {
+    const { order, map } = state.result;
+    let seq = order;
+    if (state.cycle) { seq = [order[0]]; while (seq.length < order.length) seq.push(map[seq[seq.length - 1]]); }
+    const rows = seq.map((g) => `<tr><td>${esc(g)}</td><td>→</td><td>${esc(map[g])}</td></tr>`).join("");
+    const text = seq.map((g) => `${g} → ${map[g]}`).join("\n");
+    $("sheet").innerHTML = `<h2>全部結果</h2>
+      <div class="tablebox" style="width:100%"><table class="all"><tbody>${rows}</tbody></table></div>
+      <div class="actions" style="justify-content:center">
+        <button id="copy">複製結果</button><button class="primary" id="close">關閉</button>
+      </div><p id="copied" hidden></p>`;
+    $("overlay").hidden = false;
+    $("close").onclick = closeReveal;
+    $("copy").onclick = () => {
+      const done = (t) => { $("copied").textContent = t; $("copied").hidden = false; };
+      navigator.clipboard.writeText(text).then(() => done("已複製"), () => done("無法自動複製，請手動選取上方表格。"));
+    };
+  });
+  $("redrawBtn").onclick = () => ask("重新抽籤後，之前的結果會作廢，已經看過的人要重看。", "重新抽籤", () => { state.result = null; render(); doDraw(); });
+  $("backBtn").onclick = () => ask("回去修改名單會清除目前的抽籤結果。", "清除並修改", () => { state.result = null; state.seen = {}; save(); render(); });
+  $("drawBtn").onclick = doDraw;
+  $("clearBtn").onclick = () => { $("names").value = ""; $("excl").value = ""; state.isExample = false; readForm(); fillForm(); save(); $("names").focus(); };
+
+  load(); render();
+})();
+</script>
