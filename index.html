@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
-/* Layout: one narrow column — setup card, then a grid of gift tags that each person opens privately on a shared phone. */
+/* Layout: one narrow column — names and colors side by side, one draw button, then every pairing as a gift tag. */
 :root {
   --bg: #f3f5f1;
   --surface: #ffffff;
@@ -17,7 +17,6 @@
   --gold: #b8892b;
   --tag: #fbf6ea;
   --tag-ink: #3a2e1a;
-  --done: #e7ece8;
   --font-display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", serif;
   --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --radius: 10px;
@@ -26,13 +25,13 @@
   :root:not([data-theme="light"]) {
     --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
     --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
-    --tag: #2a2519; --tag-ink: #f1e6cc; --done: #1c2722; color-scheme: dark;
+    --tag: #2a2519; --tag-ink: #f1e6cc; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
   --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
-  --tag: #2a2519; --tag-ink: #f1e6cc; --done: #1c2722; color-scheme: dark;
+  --tag: #2a2519; --tag-ink: #f1e6cc; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -67,62 +66,41 @@ textarea:focus-visible, button:focus-visible { outline: 2px solid var(--gold); o
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 button.primary { background: var(--pine); color: var(--pine-ink); border-color: var(--pine); font-weight: 700; }
+button.big { font-size: 18px; padding: 14px 28px; }
 button.ghost { background: transparent; }
-button.danger { color: var(--berry); }
 button:hover { filter: brightness(1.06); }
 .count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); }
 
 .msg { margin: 0; font-size: 14px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--berry); color: var(--berry); }
 .example { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px dashed var(--muted); color: var(--muted); margin-left: 6px; font-weight: 400; vertical-align: middle; }
 
-/* Results */
-.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
-.meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.progress { height: 6px; background: var(--done); border-radius: 99px; overflow: hidden; }
-.progress i { display: block; height: 100%; background: var(--gold); width: 0; transition: width .3s; }
-.tags { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-.tagbtn {
-  position: relative; text-align: left; padding: 16px 14px 14px 30px;
-  background: var(--tag); color: var(--tag-ink); border: 1px solid var(--line);
-  border-radius: 6px 12px 12px 6px; display: grid; gap: 2px; min-width: 0;
+/* Results: one gift tag per pairing */
+.results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.results-head h2 { font-family: var(--font-display); font-size: 24px; margin: 0; }
+.list { display: grid; gap: 10px; }
+.pair {
+  position: relative; background: var(--tag); color: var(--tag-ink); border: 1px solid var(--line);
+  border-radius: 6px 14px 14px 6px; padding: 12px 16px 12px 36px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
 }
-.tagbtn::before {
-  content: ""; position: absolute; left: 11px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px;
-  border-radius: 50%; background: var(--bg); border: 1.5px solid var(--gold);
+.pair::before {
+  content: ""; position: absolute; left: 13px; top: 50%; width: 10px; height: 10px; margin-top: -5px;
+  border-radius: 50%; background: var(--surface); border: 1.5px solid var(--gold);
 }
-.tagbtn .who { font-family: var(--font-display); font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
-.tagbtn .st { font-size: 12px; color: var(--muted); }
-.tagbtn.seen { background: var(--done); color: var(--muted); }
-.tagbtn.seen .st { color: var(--pine); font-weight: 700; }
-
-/* Reveal overlay */
-.overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: grid; place-items: center;
-  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
-.sheet { width: 100%; max-width: 380px; display: grid; gap: 18px; justify-items: center; text-align: center; }
-.sheet h2 { font-family: var(--font-display); font-size: 28px; margin: 0; text-wrap: balance; }
-.sheet p { margin: 0; color: var(--muted); }
-.bigtag {
-  width: 100%; background: var(--tag); color: var(--tag-ink); border: 1px solid var(--gold);
-  border-radius: 10px 22px 22px 10px; padding: 26px 24px 24px 56px; position: relative; text-align: left; display: grid; gap: 4px;
+.pair .p { font-family: var(--font-display); font-size: 20px; font-weight: 700; overflow-wrap: anywhere; }
+.pair .arrow { color: var(--gold); font-size: 18px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; white-space: nowrap; }
+.chip.nosw { padding-left: 12px; }
+.sw { width: 20px; height: 20px; border-radius: 50%; flex: none; border: 1px solid var(--line); background: var(--sw, transparent); }
+@media (max-width: 420px) {
+  .pair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .pair .chip { grid-column: 1 / -1; justify-self: start; }
 }
-.bigtag::before { content: ""; position: absolute; left: 20px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; background: var(--bg); border: 2px solid var(--gold); }
-.bigtag .lbl { font-size: 13px; letter-spacing: .1em; color: var(--berry); font-weight: 700; }
-.bigtag .name { font-family: var(--font-display); font-size: clamp(34px, 10vw, 48px); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
-.bigtag .color { display: flex; align-items: center; gap: 12px; border-top: 1px dashed var(--gold); padding-top: 12px; margin-top: 10px; }
-.bigtag .color .name { font-size: clamp(28px, 8vw, 38px); }
-.from { font-size: 14px; margin-top: 8px; }
-.sw { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 1px solid var(--line); background: var(--sw, transparent); }
-.sw.small { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 6px; }
 @media (prefers-reduced-motion: no-preference) {
-  .bigtag { animation: swing .7s cubic-bezier(.3,1.4,.5,1) both; transform-origin: 28px 50%; }
-  @keyframes swing { from { transform: rotate(-8deg) scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+  .pair { animation: drop .45s cubic-bezier(.3,1.3,.5,1) both; animation-delay: calc(var(--i) * 70ms); }
+  @keyframes drop { from { opacity: 0; transform: translateY(-8px) rotate(-1.5deg); } to { opacity: 1; transform: none; } }
 }
-
-.all { width: 100%; border-collapse: collapse; font-size: 15px; text-align: left; }
-.all th { font-size: 12px; color: var(--muted); font-weight: 500; padding: 4px; border-bottom: 1px solid var(--line); }
-.all td { padding: 8px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.all td:first-child, .all td:nth-child(2) { font-family: var(--font-display); font-size: 18px; }
-.tablebox { overflow-x: auto; width: 100%; }
 footer { font-size: 12px; color: var(--muted); text-align: center; }
 </style>
 
@@ -133,7 +111,7 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
     <p>每個人會抽到一位送禮對象和一個顏色，準備的禮物要符合那個顏色。</p>
   </header>
 
-  <section class="panel" id="setup">
+  <section class="panel">
     <div class="row">
       <div class="field">
         <label for="names">參加名單 <span class="example" id="exNames">暫定</span></label>
@@ -148,75 +126,60 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
     </div>
     <p class="msg" id="err" hidden></p>
     <div class="actions">
-      <button class="primary" id="drawBtn">開始抽籤</button>
+      <button class="primary big" id="drawBtn">抽籤</button>
     </div>
   </section>
 
   <section class="panel" id="results" hidden>
-    <div class="meta" id="meta"></div>
-    <div class="progress"><i id="bar"></i></div>
-    <p class="hint">把手機傳下去，每個人點自己的名字查看。看完按「我記住了」就會蓋起來。</p>
-    <div class="tags" id="tags"></div>
-    <div class="actions">
-      <button id="showAllBtn" class="ghost">主辦人查看全部</button>
-      <button id="redrawBtn" class="ghost">重新抽籤</button>
-      <button id="backBtn" class="ghost danger">修改名單</button>
+    <div class="results-head">
+      <h2>抽籤結果</h2>
+      <div class="actions">
+        <button class="ghost" id="copyBtn">複製結果</button>
+        <span class="note" id="copied" hidden></span>
+      </div>
     </div>
-    <div id="confirmBox" hidden></div>
+    <div class="list" id="list"></div>
   </section>
 
-  <footer>結果只存在這台裝置的瀏覽器裡，不會上傳。</footer>
+  <footer>再按一次「抽籤」會重新抽。</footer>
 </div>
-
-<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet"></div></div>
 
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const KEY = "xmas-exchange-v2";
+  const KEY = "xmas-exchange-v3";
   const EX_NAMES = "小明\n小美\n阿傑\n佩琪\n大雄\n靜香";
   const EX_COLORS = "紅\n綠\n金\n白\n藍\n紫";
-  // Swatch colors for common names; anything else shows no swatch.
-  const SW = { 紅: "#c8283c", 紅色: "#c8283c", 綠: "#2e8b57", 綠色: "#2e8b57", 金: "#d4a537", 金色: "#d4a537", 銀: "#c0c4c8", 銀色: "#c0c4c8",
-    白: "#ffffff", 白色: "#ffffff", 黑: "#1a1a1a", 黑色: "#1a1a1a", 藍: "#2f6fd6", 藍色: "#2f6fd6", 紫: "#7b4bb5", 紫色: "#7b4bb5",
-    黃: "#f2c94c", 黃色: "#f2c94c", 橘: "#ee7d2b", 橘色: "#ee7d2b", 粉紅: "#f29bb7", 粉紅色: "#f29bb7", 粉: "#f29bb7", 咖啡: "#7a5233", 咖啡色: "#7a5233", 灰: "#8a8f94", 灰色: "#8a8f94" };
+  // Swatch colors for common names; anything else shows text only.
+  const SW = { 紅: "#c8283c", 綠: "#2e8b57", 金: "#d4a537", 銀: "#c0c4c8", 白: "#ffffff", 黑: "#1a1a1a", 藍: "#2f6fd6", 紫: "#7b4bb5",
+    黃: "#f2c94c", 橘: "#ee7d2b", 粉紅: "#f29bb7", 粉: "#f29bb7", 咖啡: "#7a5233", 棕: "#7a5233", 灰: "#8a8f94" };
+  const swOf = (c) => SW[c] || SW[c.replace(/色$/, "")];
 
-  let state = { names: EX_NAMES, colors: EX_COLORS, exNames: true, exColors: true, result: null, seen: {} };
+  let state = { names: EX_NAMES, colors: EX_COLORS, exNames: true, exColors: true, result: null };
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
   function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) state = Object.assign(state, s); } catch (e) {} }
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const lines = (t) => t.split(/[\n,，、]+/).map((s) => s.trim()).filter(Boolean);
-  const sw = (c, small) => SW[c] ? `<span class="sw${small ? " small" : ""}" style="--sw:${SW[c]}"></span>` : "";
   function rand() { const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0] / 4294967296; }
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
   // Recipient: a random permutation where nobody gets themselves.
   function drawRecipients(names) {
-    for (;;) { const p = shuffle(names); if (names.every((g, i) => g !== p[i])) return Object.fromEntries(names.map((g, i) => [g, p[i]])); }
+    for (;;) { const p = shuffle(names); if (names.every((g, i) => g !== p[i])) return names.map((g, i) => p[i]); }
   }
   // Color: every color used before any repeats (no repeats at all if there are enough colors).
-  function drawColors(names, colors) {
+  function drawColors(n, colors) {
     let pool = [];
-    while (pool.length < names.length) pool = pool.concat(shuffle(colors));
-    pool = shuffle(pool.slice(0, names.length));
-    return Object.fromEntries(names.map((g, i) => [g, pool[i]]));
+    while (pool.length < n) pool = pool.concat(shuffle(colors));
+    return shuffle(pool.slice(0, n));
   }
 
-  // ---------- Setup ----------
-  function fillForm() {
-    $("names").value = state.names; $("colors").value = state.colors;
-    $("exNames").hidden = !state.exNames; $("exColors").hidden = !state.exColors;
-    counts();
-  }
   function counts() {
     const n = lines($("names").value).length, c = lines($("colors").value).length;
     $("nameCount").textContent = n ? `目前 ${n} 人` : "";
-    $("colorCount").textContent = c ? `目前 ${c} 色` + (n > c && c ? `，人比顏色多，會有人同色` : "") : "";
+    $("colorCount").textContent = c ? `目前 ${c} 色` + (n > c ? "，人比顏色多，會有人同色" : "") : "";
   }
-  $("names").addEventListener("input", () => { state.names = $("names").value; state.exNames = false; $("exNames").hidden = true; counts(); save(); });
-  $("colors").addEventListener("input", () => { state.colors = $("colors").value; state.exColors = false; $("exColors").hidden = true; counts(); save(); });
-
   function showErr(t) { $("err").textContent = t; $("err").hidden = !t; }
 
   function doDraw() {
@@ -226,78 +189,35 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
     if (dup.length) return showErr(`名字重複：${[...new Set(dup)].join("、")}。請加上姓氏或綽號區分。`);
     if (!colors.length) return showErr("請至少輸入一個顏色。");
     showErr("");
-    state.result = { order: names, to: drawRecipients(names), color: drawColors(names, colors) };
-    state.seen = {}; save(); render();
+    const to = drawRecipients(names), col = drawColors(names.length, colors);
+    state.result = names.map((g, i) => ({ from: g, to: to[i], color: col[i] }));
+    save(); renderResults();
+    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ---------- Results ----------
-  function render() {
-    const has = !!state.result;
-    $("setup").hidden = has; $("results").hidden = !has; $("confirmBox").hidden = true;
-    if (!has) { fillForm(); return; }
-    const { order } = state.result;
-    const seenN = order.filter((n) => state.seen[n]).length;
-    $("meta").innerHTML = `<span>共 <b>${order.length}</b> 人</span><span>已查看 <b>${seenN}/${order.length}</b></span>`;
-    $("bar").style.width = (seenN / order.length * 100) + "%";
-    $("tags").innerHTML = order.map((n, i) => `<button class="tagbtn${state.seen[n] ? " seen" : ""}" data-i="${i}">
-        <span class="who">${esc(n)}</span><span class="st">${state.seen[n] ? "已查看" : "點我查看"}</span></button>`).join("");
+  function renderResults() {
+    const r = state.result;
+    $("results").hidden = !r; $("copied").hidden = true;
+    if (!r) return;
+    $("list").innerHTML = r.map((x, i) => {
+      const s = swOf(x.color);
+      const chip = s ? `<span class="chip"><span class="sw" style="--sw:${s}"></span>${esc(x.color)}</span>` : `<span class="chip nosw">${esc(x.color)}</span>`;
+      return `<div class="pair" style="--i:${i}"><span class="p">${esc(x.from)}</span><span class="arrow">→</span><span class="p">${esc(x.to)}</span>${chip}</div>`;
+    }).join("");
   }
 
-  $("tags").addEventListener("click", (e) => { const b = e.target.closest(".tagbtn"); if (b) openReveal(state.result.order[+b.dataset.i]); });
-
-  function openReveal(name) {
-    const sheet = $("sheet");
-    sheet.innerHTML = `<h2>你是 ${esc(name)} 嗎？</h2>
-      <p>${state.seen[name] ? "你之前已經看過了，確定要再看一次嗎？" : "請確認旁邊沒有人在偷看。"}</p>
-      <div class="actions" style="justify-content:center">
-        <button class="primary" id="yes">是，給我看</button><button class="ghost" id="no">不是我</button>
-      </div>`;
-    $("overlay").hidden = false; $("yes").focus();
-    $("no").onclick = closeReveal;
-    $("yes").onclick = () => {
-      const to = state.result.to[name], c = state.result.color[name];
-      sheet.innerHTML = `<div class="bigtag">
-          <span class="lbl">你要送禮給</span>
-          <span class="name">${esc(to)}</span>
-          <div class="color">${sw(c)}<div style="display:grid"><span class="lbl">禮物顏色</span><span class="name">${esc(c)}</span></div></div>
-          <span class="from">FROM　${esc(name)}</span>
-        </div>
-        <p>記好之後按下面的按鈕蓋起來，再把手機傳給下一位。</p>
-        <button class="primary" id="gotit">我記住了</button>`;
-      $("gotit").focus();
-      $("gotit").onclick = () => { state.seen[name] = true; save(); closeReveal(); };
-    };
-  }
-  function closeReveal() { $("overlay").hidden = true; $("sheet").innerHTML = ""; render(); }
-
-  function ask(text, yesLabel, onYes) {
-    const box = $("confirmBox");
-    box.innerHTML = `<div class="panel" style="padding:14px;gap:10px"><p style="margin:0">${text}</p>
-      <div class="actions"><button class="primary" id="cy">${yesLabel}</button><button class="ghost" id="cn">取消</button></div></div>`;
-    box.hidden = false;
-    $("cn").onclick = () => { box.hidden = true; };
-    $("cy").onclick = () => { box.hidden = true; onYes(); };
-  }
-
-  $("showAllBtn").onclick = () => ask("這會顯示所有人的抽籤結果，確定只有主辦人在看嗎？", "顯示全部", () => {
-    const { order, to, color } = state.result;
-    const rows = order.map((g) => `<tr><td>${esc(g)}</td><td>${esc(to[g])}</td><td>${sw(color[g], true)}${esc(color[g])}</td></tr>`).join("");
-    const text = order.map((g) => `${g} → ${to[g]}（${color[g]}）`).join("\n");
-    $("sheet").innerHTML = `<h2>全部結果</h2>
-      <div class="tablebox"><table class="all"><thead><tr><th>送禮的人</th><th>送給</th><th>顏色</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="actions" style="justify-content:center"><button id="copy">複製結果</button><button class="primary" id="close">關閉</button></div>
-      <p id="copied" hidden></p>`;
-    $("overlay").hidden = false;
-    $("close").onclick = closeReveal;
-    $("copy").onclick = () => {
-      const done = (t) => { $("copied").textContent = t; $("copied").hidden = false; };
-      navigator.clipboard.writeText(text).then(() => done("已複製"), () => done("無法自動複製，請手動選取上方表格。"));
-    };
-  });
-  $("redrawBtn").onclick = () => ask("重新抽籤後，之前的結果會作廢，已經看過的人要重看。", "重新抽籤", doDraw);
-  $("backBtn").onclick = () => ask("回去修改名單會清除目前的抽籤結果。", "清除並修改", () => { state.result = null; state.seen = {}; save(); render(); });
+  $("names").addEventListener("input", () => { state.names = $("names").value; state.exNames = false; $("exNames").hidden = true; counts(); save(); });
+  $("colors").addEventListener("input", () => { state.colors = $("colors").value; state.exColors = false; $("exColors").hidden = true; counts(); save(); });
   $("drawBtn").onclick = doDraw;
+  $("copyBtn").onclick = () => {
+    const text = state.result.map((x) => `${x.from} → ${x.to}（${x.color}）`).join("\n");
+    const done = (t) => { $("copied").textContent = t; $("copied").hidden = false; };
+    navigator.clipboard.writeText(text).then(() => done("已複製"), () => done("無法自動複製，請手動選取"));
+  };
 
-  load(); render();
+  load();
+  $("names").value = state.names; $("colors").value = state.colors;
+  $("exNames").hidden = !state.exNames; $("exColors").hidden = !state.exColors;
+  counts(); renderResults();
 })();
 </script>
