@@ -107,7 +107,7 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
   </header>
 
   <section class="panel">
-    <div class="row">
+    <div class="row" hidden>
       <div class="field">
         <label for="names">參加名單 <span class="example" id="exNames">暫定</span></label>
         <textarea id="names" rows="8"></textarea>
@@ -142,17 +142,17 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const KEY = "xmas-exchange-v4";
-  const EX_NAMES = "小明\n小美\n阿傑\n佩琪\n大雄\n靜香";
-  const EX_COLORS = "紅\n綠\n金\n白\n藍\n紫";
+  const KEY = "xmas-exchange-v7";
+  const EX_NAMES = "彭丞麒\n邱宇婷\n廖志翔\n王灝庭\n葉昕逵\n謝彥守\n張博傑\n廖振凱\n林妤茜\n詹孟真\n陳晉偉\n吳宛蓁\n劉亦謙\n劉倫綱\n游婉𤩦";
+  const EX_COLORS = "紅\n綠\n金\n銀\n白\n黑\n藍\n紫";
   // Swatch colors for common names; anything else shows text only.
   const SW = { 紅: "#c8283c", 綠: "#2e8b57", 金: "#d4a537", 銀: "#c0c4c8", 白: "#ffffff", 黑: "#1a1a1a", 藍: "#2f6fd6", 紫: "#7b4bb5",
     黃: "#f2c94c", 橘: "#ee7d2b", 粉紅: "#f29bb7", 粉: "#f29bb7", 咖啡: "#7a5233", 棕: "#7a5233", 灰: "#8a8f94" };
   const swOf = (c) => SW[c] || SW[c.replace(/色$/, "")];
 
-  let state = { names: EX_NAMES, colors: EX_COLORS, exNames: true, exColors: true, result: null };
+  let state = { names: EX_NAMES, colors: EX_COLORS, exNames: false, exColors: false, result: null };
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
-  function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) state = Object.assign(state, s); } catch (e) {} }
+  function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.result) state.result = s.result; } catch (e) {} }
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const lines = (t) => t.split(/[\n,，、]+/).map((s) => s.trim()).filter(Boolean);
