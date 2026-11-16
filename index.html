@@ -49,6 +49,9 @@ header { display: grid; gap: 6px; }
 .eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--berry); font-weight: 700; }
 h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1.15; margin: 0; text-wrap: balance; }
 header p { margin: 0; color: var(--muted); }
+.rules { margin: 4px 0 0; padding-left: 1.3em; color: var(--muted); display: grid; gap: 4px; }
+.rules b { color: var(--ink); }
+.rules li::marker { color: var(--gold); }
 
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 18px; }
 .field { display: grid; gap: 6px; }
@@ -103,7 +106,10 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
   <header>
     <span class="eyebrow">CHRISTMAS GIFT EXCHANGE</span>
     <h1>聖誕交換禮物抽籤</h1>
-    <p>每個人會抽到一個顏色，準備的禮物要符合那個顏色。</p>
+    <ul class="rules">
+      <li>每個人會抽到一個顏色，準備的禮物<b>本身</b>要符合那個顏色。（包裝紙、提袋等不算）</li>
+      <li>當天禮物會編號，抽編號交換禮物。</li>
+    </ul>
   </header>
 
   <section class="panel">
