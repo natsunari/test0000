@@ -2,155 +2,200 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
-/* Layout: one narrow column — names and colors side by side, one draw button, then every pairing as a gift tag. */
+/* Layout: a pine-green winter night with falling snow; a string of lights, a candy-cane rules card,
+   a red gift button, then the results as cream gift tags in two columns. Single festive look by choice. */
 :root {
-  --bg: #f3f5f1;
-  --surface: #ffffff;
-  --ink: #1d2a24;
-  --muted: #5d6b64;
-  --line: #d6ddd7;
-  --pine: #1f5a43;
-  --pine-ink: #ffffff;
-  --berry: #b3263a;
-  --gold: #b8892b;
-  --tag: #fbf6ea;
-  --tag-ink: #3a2e1a;
-  --font-display: "LXGW WenKai TC", "Kaiti TC", "STKaiti", serif;
+  --night: #0d271d;
+  --night-hi: #17452f;
+  --cream: #fbf3e1;
+  --cream-ink: #3b2a17;
+  --cream-muted: #7a6a52;
+  --red: #c8283c;
+  --red-deep: #8f1426;
+  --gold: #e0b54f;
+  --pine: #2e7d57;
+  --frost: #d4e3da;
+  --frost-dim: #9fb8aa;
+  --font-display: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-script: "Mountains of Christmas", cursive;
   --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --radius: 10px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
-    --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
-    --tag: #2a2519; --tag-ink: #f1e6cc; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #111915; --surface: #18231e; --ink: #e6ede8; --muted: #9db0a6; --line: #2c3b34;
-  --pine: #5fb48c; --pine-ink: #0d1612; --berry: #ef6b7c; --gold: #d9ad52;
-  --tag: #2a2519; --tag-ink: #f1e6cc; color-scheme: dark;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+html { background: var(--night); }
 body {
-  background: var(--bg); color: var(--ink);
+  min-height: 100vh;
+  background: radial-gradient(120% 70% at 50% 0%, var(--night-hi) 0%, var(--night) 70%) fixed, var(--night);
+  color: var(--frost);
   font-family: var(--font-body); font-size: 15px; line-height: 1.6;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 28px 48px;
+  padding-block: 0 48px;
 }
-.wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 20px; }
+#snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.wrap { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; display: grid; gap: 22px; }
 
-header { display: grid; gap: 6px; }
-.eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--berry); font-weight: 700; }
-h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 7vw, 42px); line-height: 1.15; margin: 0; text-wrap: balance; }
-header p { margin: 0; color: var(--muted); }
-.rules { margin: 4px 0 0; padding-left: 1.3em; color: var(--muted); display: grid; gap: 4px; }
-.rules b { color: var(--ink); }
-.rules li::marker { color: var(--gold); }
-
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: grid; gap: 18px; }
-.field { display: grid; gap: 6px; }
-.field label { font-weight: 700; font-size: 14px; }
-.hint { font-size: 13px; color: var(--muted); margin: 0; }
-textarea {
-  width: 100%; font: inherit; color: var(--ink); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; resize: vertical;
+/* String of lights */
+.lights { position: relative; height: 54px; overflow: hidden; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); }
+.lights::before { /* the wire */
+  content: ""; position: absolute; left: -5%; right: -5%; top: -26px; height: 44px;
+  border-bottom: 2px solid #2a3a30; border-radius: 0 0 50% 50% / 0 0 100% 100%;
 }
-textarea:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.row > * { min-width: 0; }
-@media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+.bulbs { position: absolute; inset: 0; display: flex; justify-content: space-around; }
+.bulb { --c: var(--red); position: relative; width: 12px; height: 18px; margin-top: calc(var(--y) * 1px);
+  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%; background: var(--c); box-shadow: 0 0 10px 2px var(--c); }
+.bulb::before { content: ""; position: absolute; top: -5px; left: 3px; width: 6px; height: 6px; border-radius: 2px; background: #3b4a40; }
+.bulb:nth-child(4n+2) { --c: var(--gold); }
+.bulb:nth-child(4n+3) { --c: #3fbf7f; }
+.bulb:nth-child(4n+4) { --c: #4f9bff; }
+@media (prefers-reduced-motion: no-preference) {
+  .bulb { animation: twinkle 2.4s ease-in-out infinite; animation-delay: calc(var(--d) * -1s); }
+  @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .35; box-shadow: none; } }
+}
 
-.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-button { font: inherit; cursor: pointer; border-radius: 8px; padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
-button.primary { background: var(--pine); color: var(--pine-ink); border-color: var(--pine); font-weight: 700; }
-button.big { font-size: 18px; padding: 14px 28px; }
-button.ghost { background: transparent; }
-button:hover { filter: brightness(1.06); }
-.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.note { font-size: 13px; color: var(--muted); }
+header { display: grid; gap: 4px; justify-items: center; text-align: center; }
+.merry { font-family: var(--font-script); font-size: clamp(26px, 7vw, 34px); color: var(--gold); line-height: 1.1; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(32px, 8.5vw, 46px); line-height: 1.15; margin: 0; color: var(--cream); text-wrap: balance;
+  text-shadow: 0 2px 0 var(--red-deep), 0 0 24px rgba(224, 181, 79, .25); }
 
-.msg { margin: 0; font-size: 14px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--berry); color: var(--berry); }
-.example { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; border: 1px dashed var(--muted); color: var(--muted); margin-left: 6px; font-weight: 400; vertical-align: middle; }
+/* Rules card: candy-cane edge */
+.rules-card { position: relative; background: var(--cream); color: var(--cream-ink); border-radius: 12px; padding: 22px 20px 16px; overflow: hidden; }
+.rules-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 8px;
+  background: repeating-linear-gradient(-45deg, var(--red) 0 10px, #ffffff 10px 20px); }
+.rules-card h2 { margin: 0 0 6px; font-family: var(--font-display); font-size: 19px; color: var(--red-deep); }
+.rules { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.rules li::marker { color: var(--red); }
+.rules b { color: var(--red-deep); }
+.rules .aside { color: var(--cream-muted); font-size: 13px; }
 
-/* Results: one gift tag per pairing */
-.results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
-.results-head h2 { font-family: var(--font-display); font-size: 24px; margin: 0; }
-.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 340px) { .list { grid-template-columns: 1fr; } }
+/* Draw button: a red gift with a gold ribbon */
+.draw { display: grid; justify-items: center; gap: 10px; }
+#drawBtn {
+  position: relative; font: inherit; cursor: pointer; border: 0; border-radius: 14px;
+  padding: 16px 44px 16px 40px; display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--font-display); font-size: 24px; font-weight: 700; color: #fff8e8; letter-spacing: .1em;
+  background: linear-gradient(90deg, transparent 0 22px, var(--gold) 22px 30px, transparent 30px), linear-gradient(180deg, #d93448, var(--red-deep));
+  box-shadow: 0 0 0 2px var(--gold) inset, 0 8px 24px rgba(200, 40, 60, .4);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+#drawBtn svg { width: 26px; height: 26px; margin-left: 8px; flex: none; }
+#drawBtn:hover { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--gold) inset, 0 12px 30px rgba(200, 40, 60, .55); }
+#drawBtn:active { transform: translateY(1px); }
+#drawBtn:disabled { cursor: default; opacity: .7; transform: none; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.draw .hint { margin: 0; font-size: 13px; color: var(--frost-dim); }
+
+/* Results */
+#results { background: rgba(255, 255, 255, .05); border: 1px solid rgba(224, 181, 79, .35); border-radius: 14px; padding: 20px; display: grid; gap: 16px; }
+.results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.results-head h2 { font-family: var(--font-display); font-size: 24px; margin: 0; color: var(--cream); }
+.copy { display: flex; align-items: center; gap: 10px; }
+#copyBtn { font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 16px; background: transparent; color: var(--cream); border: 1px solid rgba(251, 243, 225, .4); }
+#copyBtn:hover { border-color: var(--gold); color: var(--gold); }
+.note { font-size: 13px; color: var(--frost-dim); }
+
+.list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .pair {
-  position: relative; background: var(--tag); color: var(--tag-ink); border: 1px solid var(--line);
-  border-radius: 6px 14px 14px 6px; padding: 10px 10px 10px 30px;
+  position: relative; background: var(--cream); color: var(--cream-ink);
+  border-radius: 6px 14px 14px 6px; padding: 10px 10px 10px 14px;
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .25);
 }
-.pair::before {
+.pair::before { display: none;
   content: ""; position: absolute; left: 11px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px;
-  border-radius: 50%; background: var(--surface); border: 1.5px solid var(--gold);
+  border-radius: 50%; background: var(--night); box-shadow: 0 0 0 2px var(--red);
 }
 .pair .p { font-family: var(--font-display); font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px 2px 3px; border-radius: 99px; border: 1px solid #e6d9bd; background: #ffffff; color: var(--cream-ink); font-weight: 700; white-space: nowrap; }
+.chip.nosw { padding-left: 10px; }
+.sw { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 1px solid #d9ccb0; background: var(--sw, transparent); }
 @media (max-width: 480px) {
-  #results.panel { padding: 16px 12px; }
+  #results { padding: 16px 12px; }
   .list { gap: 8px; }
-  .pair { padding: 9px 7px 9px 22px; gap: 6px; }
+  .pair { padding: 9px 6px; gap: 5px; grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .pair .p { max-width: 100%; }
   .pair::before { left: 8px; width: 7px; height: 7px; margin-top: -3.5px; }
   .pair .p { font-size: 17px; }
 }
 @media (max-width: 370px) {
-  .pair { padding-right: 5px; gap: 4px; }
   .pair .p { font-size: 15px; }
   .chip { gap: 3px; padding: 1px 7px 1px 2px; font-size: 14px; }
   .sw { width: 14px; height: 14px; }
 }
-.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px 2px 3px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; white-space: nowrap; }
-.chip.nosw { padding-left: 10px; }
-.sw { width: 18px; height: 18px; border-radius: 50%; flex: none; border: 1px solid var(--line); background: var(--sw, transparent); }
 @media (prefers-reduced-motion: no-preference) {
-  .pair { animation: drop .45s cubic-bezier(.3,1.3,.5,1) both; animation-delay: calc(var(--i) * 70ms); }
-  @keyframes drop { from { opacity: 0; transform: translateY(-8px) rotate(-1.5deg); } to { opacity: 1; transform: none; } }
+  .pair { animation: drop .5s cubic-bezier(.3,1.3,.5,1) both; animation-delay: calc(var(--i) * 60ms); transform-origin: 6px 50%; }
+  @keyframes drop { from { opacity: 0; transform: translateY(-10px) rotate(-4deg); } to { opacity: 1; transform: none; } }
 }
-footer { font-size: 12px; color: var(--muted); text-align: center; }
+footer { font-size: 12px; color: var(--frost-dim); text-align: center; }
+
+/* Santa intermission */
+#intro { position: fixed; inset: 0; z-index: 30; overflow: hidden; background: rgba(6, 22, 16, .96); display: grid; place-items: end center;
+  padding-bottom: max(18vh, env(safe-area-inset-bottom, 0px)); opacity: 1; transition: opacity .35s ease; }
+#intro.out { opacity: 0; }
+.moon { position: absolute; top: 12vh; right: 12vw; width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fff9e6, #f2dfa8); box-shadow: 0 0 60px 20px rgba(242, 223, 168, .25); }
+.sleigh { position: absolute; left: 50%; top: 42%; width: min(380px, 86vw); margin-left: calc(min(380px, 86vw) / -2); }
+.sleigh svg { display: block; width: 100%; height: auto; overflow: visible; }
+.deer { transform-box: fill-box; transform-origin: center; }
+.intro-text { position: relative; font-size: 18px; font-weight: 700; color: var(--cream); letter-spacing: .05em; text-align: center; }
+.intro-text small { display: block; font-size: 13px; font-weight: 400; color: var(--frost-dim); letter-spacing: 0; }
+.spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px 2px rgba(224, 181, 79, .7); pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .sleigh { animation: fly 5s cubic-bezier(.45, .05, .55, .95) both; }
+  @keyframes fly {
+    0%   { transform: translate(-115vw, 60px) rotate(-8deg); }
+    50%  { transform: translate(0, -10px) rotate(-3deg); }
+    100% { transform: translate(115vw, -90px) rotate(-10deg); }
+  }
+  .deer { animation: gallop .3s ease-in-out infinite alternate; }
+  .deer.d2 { animation-delay: -.15s; }
+  @keyframes gallop { from { transform: translateY(-3px) rotate(-3deg); } to { transform: translateY(3px) rotate(3deg); } }
+  .spark { animation: spark .9s ease-out forwards; }
+  @keyframes spark { to { opacity: 0; transform: translateY(26px) scale(.3); } }
+  .nose { animation: glow .6s ease-in-out infinite alternate; }
+  @keyframes glow { to { opacity: .55; } }
+}
 </style>
 
+<canvas id="snow" aria-hidden="true"></canvas>
+
 <div class="wrap">
+  <div class="lights" aria-hidden="true"><div class="bulbs" id="bulbs"></div></div>
+
   <header>
-    <span class="eyebrow">CHRISTMAS GIFT EXCHANGE</span>
+    <span class="merry">Merry Christmas</span>
     <h1>聖誕交換禮物抽籤</h1>
-    <ul class="rules">
-      <li>每個人會抽到一個顏色，準備的禮物<b>本身</b>要符合那個顏色。（包裝紙、提袋等不算）</li>
-      <li>當天禮物會編號，抽編號交換禮物。</li>
-    </ul>
   </header>
 
-  <section class="panel">
-    <div class="row" hidden>
-      <div class="field">
-        <label for="names">參加名單 <span class="example" id="exNames">暫定</span></label>
-        <textarea id="names" rows="8"></textarea>
-        <p class="hint">一行一個名字。<span class="count" id="nameCount"></span></p>
-      </div>
-      <div class="field">
-        <label for="colors">顏色 <span class="example" id="exColors">暫定</span></label>
-        <textarea id="colors" rows="8"></textarea>
-        <p class="hint">一行一個顏色。<span class="count" id="colorCount"></span></p>
-      </div>
-    </div>
-    <p class="msg" id="err" hidden></p>
-    <div class="actions">
-      <button class="primary big" id="drawBtn">抽籤</button>
-    </div>
+  <section class="rules-card">
+    <h2>遊戲規則</h2>
+    <ul class="rules">
+      <li>每個人會抽到一個顏色，準備的禮物<b>本身</b>要符合那個顏色。<span class="aside">（包裝紙、提袋等不算）</span></li>
+      <li>當天禮物會編號，抽編號交換禮物。</li>
+    </ul>
   </section>
 
-  <section class="panel" id="results" hidden>
+  <section class="draw">
+    <button id="drawBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="9" width="18" height="12" rx="1.5" fill="none"></rect><path d="M2 9h20M12 9v12"></path>
+        <path d="M12 9c-1.5-3-5-4-5.5-1.8C6 9 9.5 9 12 9zM12 9c1.5-3 5-4 5.5-1.8C18 9 14.5 9 12 9z"></path>
+      </svg>
+      抽籤
+    </button>
+    <p class="hint" id="drawHint">15 位參加者・8 種顏色</p>
+  </section>
+
+  <section id="results" hidden>
     <div class="results-head">
       <h2>抽籤結果</h2>
-      <div class="actions">
-        <button class="ghost" id="copyBtn">複製結果</button>
+      <div class="copy">
         <span class="note" id="copied" hidden></span>
+        <button id="copyBtn" type="button">複製結果</button>
       </div>
     </div>
     <div class="list" id="list"></div>
@@ -159,76 +204,166 @@ footer { font-size: 12px; color: var(--muted); text-align: center; }
   <footer>再按一次「抽籤」會重新抽。</footer>
 </div>
 
+<div id="intro" hidden aria-live="polite">
+  <div class="moon"></div>
+  <div class="sleigh" id="sleigh">
+    <svg viewBox="0 0 330 110" aria-hidden="true">
+      <!-- reins -->
+      <path d="M86 54 Q140 40 196 52 M196 52 Q240 44 276 50" stroke="#e0b54f" stroke-width="1.5" fill="none"></path>
+      <!-- reindeer 1 -->
+      <g class="deer">
+        <path d="M146 60 L136 76 M152 62 L148 82 M178 62 L190 78 M184 60 L198 70" stroke="#6b4426" stroke-width="4" stroke-linecap="round"></path>
+        <ellipse cx="165" cy="56" rx="24" ry="10" fill="#8a5a33"></ellipse>
+        <path d="M182 52 L192 36 L200 38 L192 56 Z" fill="#8a5a33"></path>
+        <ellipse cx="199" cy="34" rx="10" ry="6" fill="#8a5a33"></ellipse>
+        <path d="M194 29 L190 16 M190 20 L184 15 M198 28 L202 15 M201 19 L207 13" stroke="#d8b47c" stroke-width="2.5" stroke-linecap="round" fill="none"></path>
+        <circle cx="200" cy="32" r="1.6" fill="#1a1a1a"></circle>
+        <circle cx="209" cy="35" r="2.4" fill="#2a1a10"></circle>
+        <path d="M141 52 L134 48" stroke="#8a5a33" stroke-width="4" stroke-linecap="round"></path>
+      </g>
+      <!-- reindeer 2 (red nose) -->
+      <g class="deer d2">
+        <path d="M226 58 L216 74 M232 60 L228 80 M258 60 L270 76 M264 58 L278 68" stroke="#6b4426" stroke-width="4" stroke-linecap="round"></path>
+        <ellipse cx="245" cy="54" rx="24" ry="10" fill="#9a6a3e"></ellipse>
+        <path d="M262 50 L272 34 L280 36 L272 54 Z" fill="#9a6a3e"></path>
+        <ellipse cx="279" cy="32" rx="10" ry="6" fill="#9a6a3e"></ellipse>
+        <path d="M274 27 L270 14 M270 18 L264 13 M278 26 L282 13 M281 17 L287 11" stroke="#d8b47c" stroke-width="2.5" stroke-linecap="round" fill="none"></path>
+        <circle cx="280" cy="30" r="1.6" fill="#1a1a1a"></circle>
+        <circle cx="289" cy="33" r="5" fill="#ff3b3b" opacity=".35" class="nose"></circle>
+        <circle cx="289" cy="33" r="3" fill="#ff3b3b"></circle>
+        <path d="M221 50 L214 46" stroke="#9a6a3e" stroke-width="4" stroke-linecap="round"></path>
+      </g>
+      <!-- sleigh -->
+      <g>
+        <rect x="30" y="44" width="16" height="16" rx="2" fill="#2e7d57"></rect><path d="M38 44 V60" stroke="#e0b54f" stroke-width="2"></path>
+        <rect x="44" y="38" width="15" height="22" rx="2" fill="#4f9bff"></rect><path d="M51.5 38 V60" stroke="#fbf3e1" stroke-width="2"></path>
+        <!-- Santa -->
+        <ellipse cx="74" cy="56" rx="14" ry="14" fill="#c8283c"></ellipse>
+        <path d="M78 50 L88 54" stroke="#c8283c" stroke-width="6" stroke-linecap="round"></path>
+        <circle cx="89" cy="54" r="3" fill="#fbf3e1"></circle>
+        <circle cx="77" cy="34" r="8" fill="#f4c9a0"></circle>
+        <path d="M69 35 Q70 50 79 49 Q87 48 85 35 Q81 40 77 40 Q72 40 69 35 Z" fill="#ffffff"></path>
+        <path d="M69 31 Q74 16 90 22 L85 30 Z" fill="#c8283c"></path>
+        <rect x="68" y="28" width="18" height="4" rx="2" fill="#ffffff"></rect>
+        <circle cx="91" cy="22" r="3" fill="#ffffff"></circle>
+        <circle cx="80" cy="33" r="1.2" fill="#1a1a1a"></circle>
+        <!-- sleigh body -->
+        <path d="M20 58 L28 58 Q32 72 44 72 H84 Q96 72 98 58 L112 58 Q116 84 100 84 H26 Q16 84 20 58 Z" fill="#c8283c"></path>
+        <path d="M24 66 Q30 78 44 78 H92" stroke="#e0b54f" stroke-width="2" fill="none"></path>
+        <path d="M40 84 V92 M88 84 V92" stroke="#e0b54f" stroke-width="3"></path>
+        <path d="M14 92 H106 Q122 92 120 78" stroke="#e0b54f" stroke-width="3.5" stroke-linecap="round" fill="none"></path>
+      </g>
+    </svg>
+  </div>
+  <p class="intro-text">聖誕老人正在送顏色過來…<small>Ho Ho Ho!</small></p>
+</div>
+
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const KEY = "xmas-exchange-v7";
-  const EX_NAMES = "彭丞麒\n邱宇婷\n廖志翔\n王灝庭\n葉昕逵\n謝彥守\n張博傑\n廖振凱\n林妤茜\n詹孟真\n陳晉偉\n吳宛蓁\n劉亦謙\n劉倫綱\n游婉𤩦";
-  const EX_COLORS = "紅\n綠\n金\n銀\n白\n黑\n藍\n紫";
-  // Swatch colors for common names; anything else shows text only.
-  const SW = { 紅: "#c8283c", 綠: "#2e8b57", 金: "#d4a537", 銀: "#c0c4c8", 白: "#ffffff", 黑: "#1a1a1a", 藍: "#2f6fd6", 紫: "#7b4bb5",
-    黃: "#f2c94c", 橘: "#ee7d2b", 粉紅: "#f29bb7", 粉: "#f29bb7", 咖啡: "#7a5233", 棕: "#7a5233", 灰: "#8a8f94" };
-  const swOf = (c) => SW[c] || SW[c.replace(/色$/, "")];
+  const KEY = "xmas-exchange-v8";
+  const NAMES = ["彭丞麒", "邱宇婷", "廖志翔", "王灝庭", "葉昕逵", "謝彥守", "張博傑", "廖振凱", "林妤茜", "詹孟真", "陳晉偉", "吳宛蓁", "劉亦謙", "劉倫綱", "游婉潔"];
+  const COLORS = ["紅", "綠", "金", "銀", "白", "黑", "藍", "紫"];
+  const SW = { 紅: "#c8283c", 綠: "#2e8b57", 金: "#d4a537", 銀: "#c0c4c8", 白: "#ffffff", 黑: "#1a1a1a", 藍: "#2f6fd6", 紫: "#7b4bb5" };
 
-  let state = { names: EX_NAMES, colors: EX_COLORS, exNames: false, exColors: false, result: null };
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
-  function load() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.result) state.result = s.result; } catch (e) {} }
+  let result = null;
+  try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.result) result = s.result; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ result })); } catch (e) {} };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const lines = (t) => t.split(/[\n,，、]+/).map((s) => s.trim()).filter(Boolean);
   function rand() { const u = new Uint32Array(1); crypto.getRandomValues(u); return u[0] / 4294967296; }
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
-  // Color: every color used before any repeats (no repeats at all if there are enough colors).
-  function drawColors(n, colors) {
+  // Every color is used before any repeats.
+  function drawColors(n) {
     let pool = [];
-    while (pool.length < n) pool = pool.concat(shuffle(colors));
+    while (pool.length < n) pool = pool.concat(shuffle(COLORS));
     return shuffle(pool.slice(0, n));
   }
 
-  function counts() {
-    const n = lines($("names").value).length, c = lines($("colors").value).length;
-    $("nameCount").textContent = n ? `目前 ${n} 人` : "";
-    $("colorCount").textContent = c ? `目前 ${c} 色` + (n > c ? "，人比顏色多，會有人同色" : "") : "";
-  }
-  function showErr(t) { $("err").textContent = t; $("err").hidden = !t; }
-
-  function doDraw() {
-    const names = lines(state.names), colors = [...new Set(lines(state.colors))];
-    if (names.length < 1) return showErr("請至少輸入一個名字。");
-    const dup = names.filter((n, i) => names.indexOf(n) !== i);
-    if (dup.length) return showErr(`名字重複：${[...new Set(dup)].join("、")}。請加上姓氏或綽號區分。`);
-    if (!colors.length) return showErr("請至少輸入一個顏色。");
-    showErr("");
-    const col = drawColors(names.length, colors);
-    state.result = names.map((g, i) => ({ from: g, color: col[i] }));
-    save(); renderResults();
-    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  function renderResults() {
-    const r = state.result;
-    $("results").hidden = !r; $("copied").hidden = true;
-    if (!r) return;
-    $("list").innerHTML = r.map((x, i) => {
-      const s = swOf(x.color);
+  function render() {
+    $("results").hidden = !result; $("copied").hidden = true;
+    if (!result) return;
+    $("list").innerHTML = result.map((x, i) => {
+      const s = SW[x.color];
       const chip = s ? `<span class="chip"><span class="sw" style="--sw:${s}"></span>${esc(x.color)}</span>` : `<span class="chip nosw">${esc(x.color)}</span>`;
       return `<div class="pair" style="--i:${i}"><span class="p">${esc(x.from)}</span>${chip}</div>`;
     }).join("");
   }
 
-  $("names").addEventListener("input", () => { state.names = $("names").value; state.exNames = false; $("exNames").hidden = true; counts(); save(); });
-  $("colors").addEventListener("input", () => { state.colors = $("colors").value; state.exColors = false; $("exColors").hidden = true; counts(); save(); });
-  $("drawBtn").onclick = doDraw;
+  let busy = false;
+  $("drawBtn").onclick = () => {
+    if (busy) return;
+    busy = true; $("drawBtn").disabled = true;
+    const col = drawColors(NAMES.length);
+    const next = NAMES.map((g, i) => ({ from: g, color: col[i] }));
+    playIntro(() => {
+      result = next; save(); render(); busy = false; $("drawBtn").disabled = false;
+      $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  // Santa flies across for ~5 seconds, leaving a trail of gold sparks, then the results appear.
+  function playIntro(done) {
+    const intro = $("intro"), sleigh = $("sleigh");
+    const quiet = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    intro.classList.remove("out"); intro.hidden = false;
+    sleigh.style.animation = "none"; void sleigh.offsetWidth; sleigh.style.animation = "";
+    let timer = 0;
+    if (!quiet) timer = setInterval(() => {
+      const r = sleigh.getBoundingClientRect();
+      const s = document.createElement("span"); s.className = "spark";
+      s.style.left = (r.left + r.width * 0.05 + (rand() - .5) * 14) + "px";
+      s.style.top = (r.top + r.height * 0.8 + (rand() - .5) * 14) + "px";
+      intro.appendChild(s); setTimeout(() => s.remove(), 900);
+    }, 45);
+    setTimeout(() => {
+      clearInterval(timer); intro.classList.add("out");
+      setTimeout(() => { intro.hidden = true; intro.querySelectorAll(".spark").forEach((s) => s.remove()); done(); }, 350);
+    }, quiet ? 1200 : 5000);
+  }
   $("copyBtn").onclick = () => {
-    const text = state.result.map((x) => `${x.from}：${x.color}`).join("\n");
+    const text = result.map((x) => `${x.from}：${x.color}`).join("\n");
     const done = (t) => { $("copied").textContent = t; $("copied").hidden = false; };
     navigator.clipboard.writeText(text).then(() => done("已複製"), () => done("無法自動複製，請手動選取"));
   };
 
-  load();
-  $("names").value = state.names; $("colors").value = state.colors;
-  $("exNames").hidden = !state.exNames; $("exColors").hidden = !state.exColors;
-  counts(); renderResults();
+  // String of lights
+  const bulbs = $("bulbs"), count = 14;
+  for (let i = 0; i < count; i++) {
+    const t = (i + 0.5) / count, y = 6 + Math.sin(t * Math.PI) * 22; // follow the sagging wire
+    const b = document.createElement("span"); b.className = "bulb";
+    b.style.setProperty("--y", y.toFixed(1)); b.style.setProperty("--d", (rand() * 2.4).toFixed(2));
+    bulbs.appendChild(b);
+  }
+
+  // Snow
+  const cv = $("snow"), ctx = cv.getContext("2d");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, flakes = [];
+  function size() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const n = Math.round(Math.min(110, W * H / 9000));
+    flakes = Array.from({ length: n }, () => ({ x: rand() * W, y: rand() * H, r: 0.8 + rand() * 2.4, s: 0.3 + rand() * 0.9, w: rand() * Math.PI * 2 }));
+    if (still) paint();
+  }
+  function paint() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (const f of flakes) { ctx.globalAlpha = 0.35 + f.r / 4; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  function tick() {
+    for (const f of flakes) {
+      f.y += f.s; f.w += 0.01; f.x += Math.sin(f.w) * 0.4;
+      if (f.y > H + 4) { f.y = -4; f.x = rand() * W; }
+    }
+    paint(); requestAnimationFrame(tick);
+  }
+  addEventListener("resize", size); size();
+  if (!still) requestAnimationFrame(tick);
+
+  render();
 })();
 </script>
